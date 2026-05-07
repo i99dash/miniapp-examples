@@ -120,8 +120,8 @@ export function getAdmin(): AdminClient | null {
   // We don't await getContext here; admin requires it at call time
   // not at construction. The simpler shape: pull the synchronous
   // catalog snapshot from window if present, fall back to the dev
-  // catalog defined above. The user's appId/vin are filled in by
-  // the AdminClient.fromWindow() consumer below.
+  // catalog defined above. The user's appId/bydDeviceId are filled in
+  // by the AdminClient.fromWindow() consumer below.
   const catalogList =
     (typeof window !== 'undefined' && window.__i99dashAdminCatalog) || DEV_CATALOG;
 
@@ -129,12 +129,12 @@ export function getAdmin(): AdminClient | null {
     cached = AdminClient.fromWindow({
       // The context fields are placeholders for the synchronous
       // construction. The host actually carries the authoritative
-      // (user_id, vin, cert_hash) tuple in its session-cap row;
-      // these client-side values exist for client-side affordances
+      // (user_id, byd_device_id, cert_hash) tuple in its session-cap
+      // row; these client-side values exist for client-side affordances
       // (UI rendering, type narrowing).
       context: {
         appId: 'adb-helper',
-        vin: 'pending',
+        bydDeviceId: 'pending',
       },
       catalog: snapshotFromList(catalogList),
     });
