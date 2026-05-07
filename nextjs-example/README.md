@@ -5,8 +5,8 @@ end-to-end, runnable locally without any i99dash backend.
 
 ## What it shows
 
-- `getContext` — pulls user / VIN / locale / theme from the host; flips
-  the document direction to RTL for Arabic.
+- `getContext` — pulls user / device ID / locale / theme from the host;
+  flips the document direction to RTL for Arabic.
 - `callApi` — reads a fuel-station list through the host bridge; the
   dev-server serves the fixture in `mocks/`.
 - Driving-state banner — polls the dev-server's `/_sdk/state` so the

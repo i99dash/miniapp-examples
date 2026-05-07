@@ -51,8 +51,9 @@ export default function ContextCard() {
       <pre>
         {JSON.stringify(
           {
-            // Mask sensitive fields before rendering — VIN is the only
-            // one that identifies a physical car across sessions.
+            // Mask sensitive fields before rendering — the BYD device
+            // ID is the only one that identifies a physical car across
+            // sessions.
             userId: ctx.userId ? '••••' + ctx.userId.slice(-4) : '',
             activeCarId: ctx.activeCarId ? '••••' + ctx.activeCarId.slice(-4) : '',
             locale: ctx.locale,
