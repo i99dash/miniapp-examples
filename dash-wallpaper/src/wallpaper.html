@@ -22,22 +22,34 @@
       body {
         position: relative;
       }
-      #fill {
+      /* #stage hosts the active wallpaper layer + the inset border
+         overlay. Opacity is applied to #fill (the content) so the
+         border stays at full strength even when the image is dimmed. */
+      #stage {
         position: absolute;
         inset: 0;
       }
-      #fill.image {
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
+      #fill {
+        position: absolute;
+        inset: 0;
+        opacity: var(--op, 1);
       }
-      #fill video,
-      #fill img {
+      #fill > video,
+      #fill > img {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: var(--fit, cover);
+        object-position: var(--posX, 50%) var(--posY, 50%);
+        transform: scale(var(--zoom, 1));
+        transform-origin: center;
+      }
+      #border {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        box-shadow: inset 0 0 0 var(--bw, 0px) var(--bc, transparent);
       }
 
       /* Built-in gradient presets (mirror the gallery thumbnails) */
@@ -67,21 +79,64 @@
     </style>
   </head>
   <body>
-    <div id="fill"></div>
+    <div id="stage">
+      <div id="fill"></div>
+      <div id="border"></div>
+    </div>
     <script>
       // Wallpaper renderer — picks one of three sources from the
-      // route's query string:
+      // route's query string and layers the editor's fit / zoom /
+      // position / opacity / border on top:
       //
       //   ?preset=<name>             — gallery preset (CSS class)
       //   ?src=<dataUrl>&kind=image  — uploaded raster image
       //   ?src=<dataUrl>&kind=video  — uploaded video (auto-loop, muted)
       //   ?grad=<cssGradient>        — custom CSS gradient
       //
+      // Edit overlays (all optional, defaulted in the editor):
+      //   &fit=cover|contain|fill|none   image/video object-fit
+      //   &zoom=50..300                  scale percent on the content
+      //   &px=0..100  &py=0..100         object-position percent
+      //   &op=0..100                     opacity of the fill layer
+      //   &bw=0..40   &bc=RRGGBB         inset border width + colour
+      //
       // Same content shape regardless of which screen this surface
       // is mounted on (head unit / passenger / cluster).
       (function () {
+        var stage = document.getElementById('stage');
         var fill = document.getElementById('fill');
+        var border = document.getElementById('border');
         var p = new URLSearchParams(location.search);
+
+        // ── Edit params ───────────────────────────────────────
+        var fit = p.get('fit') || 'cover';
+        var zoom = clamp(parseInt(p.get('zoom'), 10), 50, 300, 100) / 100;
+        var posX = clamp(parseInt(p.get('px'), 10), 0, 100, 50);
+        var posY = clamp(parseInt(p.get('py'), 10), 0, 100, 50);
+        var opacity = clamp(parseInt(p.get('op'), 10), 0, 100, 100) / 100;
+        var bw = clamp(parseInt(p.get('bw'), 10), 0, 40, 0);
+        var bcRaw = (p.get('bc') || '').replace(/[^0-9a-f]/gi, '').slice(0, 6);
+        var bc = bcRaw.length === 6 ? '#' + bcRaw : '#000000';
+
+        function clamp(n, lo, hi, dflt) {
+          if (!isFinite(n)) return dflt;
+          if (n < lo) return lo;
+          if (n > hi) return hi;
+          return n;
+        }
+
+        // Apply opacity / position / zoom / fit as CSS variables so
+        // the same selectors above pick them up across image / video
+        // / background-image rendering paths.
+        fill.style.setProperty('--op', opacity);
+        fill.style.setProperty('--fit', fit);
+        fill.style.setProperty('--posX', posX + '%');
+        fill.style.setProperty('--posY', posY + '%');
+        fill.style.setProperty('--zoom', zoom);
+        border.style.setProperty('--bw', bw + 'px');
+        border.style.setProperty('--bc', bc);
+
+        // ── Source ────────────────────────────────────────────
         var preset = p.get('preset');
         var src = p.get('src');
         var kind = p.get('kind');
@@ -96,8 +151,13 @@
           return;
         }
         if (src && kind === 'image') {
-          fill.className = 'image';
-          fill.style.backgroundImage = 'url(' + JSON.stringify(src) + ')';
+          // Use a real <img> element so transform: scale composites
+          // with object-fit/object-position the same way the editor
+          // preview renders. Keeps editor and surface visually
+          // identical, which matters for fine-grained pan adjustments.
+          var img = document.createElement('img');
+          img.src = src;
+          fill.appendChild(img);
           return;
         }
         if (src && kind === 'video') {

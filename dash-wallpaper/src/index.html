@@ -87,7 +87,7 @@
       .app {
         height: 100%;
         display: grid;
-        grid-template-rows: auto auto auto 1fr auto;
+        grid-template-rows: auto auto auto 1fr auto auto;
         gap: 0;
       }
 
@@ -294,8 +294,13 @@
         border-radius: var(--r-md);
         overflow: hidden;
         aspect-ratio: 16 / 9;
-        background: var(--bg-2);
+        background: #000;
         position: relative;
+        touch-action: none;
+        cursor: grab;
+      }
+      .uploaded-preview.dragging {
+        cursor: grabbing;
       }
       .uploaded-preview .thumb {
         position: absolute;
@@ -308,7 +313,155 @@
       .uploaded-preview video {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: var(--fit, cover);
+        object-position: var(--posX, 50%) var(--posY, 50%);
+        transform: scale(var(--zoom, 1));
+        transform-origin: center;
+        opacity: var(--op, 1);
+        transition: opacity 0.12s ease;
+        pointer-events: none;
+      }
+      .uploaded-preview .border-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        box-shadow: inset 0 0 0 var(--bw, 0px) var(--bc, transparent);
+      }
+      .uploaded-preview .pan-hint {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(8px);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 10px;
+        color: var(--text-1);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.18s ease;
+      }
+      .uploaded-preview:hover .pan-hint {
+        opacity: 1;
+      }
+
+      /* Edit tools — fit/zoom controls inside the Upload tab */
+      .edit-panel {
+        margin-top: 14px;
+        display: none;
+      }
+      .edit-panel.visible {
+        display: block;
+      }
+      .edit-row {
+        margin-bottom: 12px;
+      }
+      .edit-label {
+        font-size: 12px;
+        color: var(--text-1);
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .edit-label .val {
+        margin-left: auto;
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 11px;
+        color: var(--text-2);
+      }
+      .fit-chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .fit-chip {
+        padding: 8px 12px;
+        font-size: 12px;
+        background: var(--bg-2);
+        color: var(--text-1);
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        cursor: pointer;
+      }
+      .fit-chip.on {
+        background: rgba(88, 199, 255, 0.12);
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .reset-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+        background: transparent;
+        color: var(--text-2);
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        cursor: pointer;
+        margin-left: auto;
+      }
+      .reset-btn:hover {
+        color: var(--text-0);
+        border-color: var(--border-strong);
+      }
+
+      /* Range slider — tap-friendly for in-car use */
+      input[type='range'].slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 28px;
+        background: transparent;
+        cursor: pointer;
+      }
+      input[type='range'].slider::-webkit-slider-runnable-track {
+        height: 6px;
+        background: var(--bg-2);
+        border-radius: 3px;
+        border: 1px solid var(--border);
+      }
+      input[type='range'].slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 22px;
+        height: 22px;
+        margin-top: -9px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 2px solid var(--bg-0);
+        box-shadow: 0 0 0 1px var(--accent);
+      }
+
+      /* Style strip — opacity + border, applies to every wallpaper mode */
+      .style-strip {
+        padding: 12px 20px;
+        border-top: 1px solid var(--border);
+        background: rgba(10, 14, 22, 0.4);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .style-strip .col {
+        min-width: 0;
+      }
+      .border-color-row {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .bc-swatch {
+        width: 22px;
+        height: 22px;
+        border-radius: 5px;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: transform 0.1s ease;
+      }
+      .bc-swatch:active {
+        transform: scale(0.9);
+      }
+      .bc-swatch.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(88, 199, 255, 0.18);
       }
 
       /* Gradient ------------------------------------------------ */
@@ -376,6 +529,9 @@
       }
 
       /* ── Footer (apply bar) ──────────────────────────────────── */
+      /* Driver-left layout (KSA / LHD): primary actions sit on the
+         left edge so the driver's natural reach lands on Apply.
+         Selection text fills to the right where it's read, not tapped. */
       .footer {
         padding: 12px 20px;
         border-top: 1px solid var(--border);
@@ -383,23 +539,26 @@
         backdrop-filter: blur(12px);
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
       }
       .footer .selection {
         flex: 1;
         font-size: 12px;
         color: var(--text-1);
+        text-align: right;
       }
       .footer .selection .ok {
         color: var(--good);
       }
       .footer button {
-        padding: 10px 20px;
-        font-size: 14px;
+        padding: 14px 24px;
+        font-size: 15px;
         font-weight: 600;
         border: 0;
         border-radius: var(--r-md);
         cursor: pointer;
+        min-height: 52px;
+        min-width: 120px;
       }
       .footer .clear {
         background: var(--bg-2);
@@ -538,6 +697,45 @@
           </label>
           <div class="uploaded-preview" id="uploadedPreview" style="display: none">
             <div class="thumb" id="uploadedThumb"></div>
+            <div class="border-overlay"></div>
+            <div class="pan-hint">drag to position</div>
+          </div>
+
+          <!-- Edit tools — fit / zoom only; opacity + border live in
+               the always-visible style strip so they apply to gallery
+               + upload + gradient alike. -->
+          <div class="edit-panel" id="editPanel">
+            <div class="edit-row">
+              <div class="edit-label">
+                <span>Fit</span>
+                <button class="reset-btn" id="resetEdit">Reset</button>
+              </div>
+              <div class="fit-chips" id="fitChips">
+                <button class="fit-chip on" data-fit="cover">Cover</button>
+                <button class="fit-chip" data-fit="contain">Contain</button>
+                <button class="fit-chip" data-fit="fill">Stretch</button>
+                <button class="fit-chip" data-fit="none">Original</button>
+              </div>
+            </div>
+
+            <div class="edit-row">
+              <div class="edit-label">
+                <span>Zoom</span>
+                <span class="val" id="zoomVal">100%</span>
+              </div>
+              <input type="range" class="slider" id="zoomSlider"
+                     min="50" max="300" step="1" value="100" />
+            </div>
+
+            <div class="edit-row">
+              <div class="edit-label">
+                <span>Position</span>
+                <span class="val" id="posVal">50% · 50%</span>
+              </div>
+              <div style="font-size: 11px; color: var(--text-2);">
+                Drag the preview above to reposition.
+              </div>
+            </div>
           </div>
         </div>
 
@@ -569,11 +767,35 @@
         </div>
       </div>
 
-      <!-- ── Footer ────────────────────────────────────────── -->
+      <!-- ── Style strip — opacity + border, applies to every mode ── -->
+      <div class="style-strip">
+        <div class="col">
+          <div class="edit-label">
+            <span>Opacity</span>
+            <span class="val" id="opVal">100%</span>
+          </div>
+          <input type="range" class="slider" id="opSlider"
+                 min="0" max="100" step="1" value="100" />
+        </div>
+        <div class="col">
+          <div class="edit-label">
+            <span>Border</span>
+            <span class="val" id="bwVal">0px</span>
+          </div>
+          <input type="range" class="slider" id="bwSlider"
+                 min="0" max="40" step="1" value="0" />
+          <div class="border-color-row" id="bcSwatches" style="margin-top: 6px"></div>
+        </div>
+      </div>
+
+      <!-- ── Footer ──────────────────────────────────────────
+           Driver-left layout: Apply + Clear sit on the left edge for
+           natural reach in LHD vehicles (KSA / GCC). Selection text
+           fills the right side — read-only, doesn't need to be tapped. -->
       <footer class="footer">
-        <span class="selection" id="selection">Pick a wallpaper above</span>
-        <button class="clear" id="clear">Clear</button>
         <button class="apply" id="apply" disabled>Apply</button>
+        <button class="clear" id="clear">Clear</button>
+        <span class="selection" id="selection">Pick a wallpaper above</span>
       </footer>
     </div>
 
@@ -602,6 +824,22 @@
         }
 
         // ── State ────────────────────────────────────────────
+        // `edit` carries every photo-fit / opacity / border tweak
+        // that gets serialized into the surface route. wallpaper.html
+        // parses the same params back on the rendering side.
+        //  - fit / zoom / posX / posY apply to uploads only (object-*
+        //    + transform only make sense on raster content).
+        //  - opacity + border apply to every mode (gallery preset,
+        //    upload, gradient) so the style strip is always live.
+        var EDIT_DEFAULT = {
+          fit: 'cover',
+          zoom: 100,        // percent
+          posX: 50,         // percent
+          posY: 50,         // percent
+          opacity: 100,     // percent
+          borderWidth: 0,   // px
+          borderColor: '#000000',
+        };
         var state = {
           targets: new Set(), // displayId set
           activeSurfaces: new Map(), // displayId → surfaceId
@@ -609,6 +847,7 @@
           preset: null,
           upload: null, // { dataUrl, kind: 'image'|'video' }
           gradient: { c1: '#0f1c33', c2: '#c8a8ff', angle: 135 },
+          edit: Object.assign({}, EDIT_DEFAULT),
         };
 
         // ── DOM helpers ─────────────────────────────────────
@@ -821,6 +1060,12 @@
           reader.onload = function () {
             state.upload = { dataUrl: reader.result, kind: kind };
             state.mode = 'upload';
+            // Reset position + zoom for a fresh upload — keep the
+            // user's opacity / border picks since those are
+            // mode-agnostic in the style strip.
+            state.edit.zoom = 100;
+            state.edit.posX = 50;
+            state.edit.posY = 50;
             // Preview
             var prev = $('#uploadedPreview');
             var thumb = $('#uploadedThumb');
@@ -839,10 +1084,151 @@
               vid.playsInline = true;
               thumb.appendChild(vid);
             }
+            $('#editPanel').classList.add('visible');
+            applyEditToPreview();
+            syncEditUI();
             updateUI();
           };
           reader.readAsDataURL(f);
         }
+
+        // ── Edit tools — fit / zoom / pan / opacity / border ─────
+        var preview = $('#uploadedPreview');
+
+        // Mirror state.edit into CSS custom properties on the preview.
+        // wallpaper.html does the same on the rendered surface.
+        function applyEditToPreview() {
+          if (!preview) return;
+          preview.style.setProperty('--fit', state.edit.fit);
+          preview.style.setProperty('--posX', state.edit.posX + '%');
+          preview.style.setProperty('--posY', state.edit.posY + '%');
+          preview.style.setProperty('--zoom', state.edit.zoom / 100);
+          preview.style.setProperty('--op', state.edit.opacity / 100);
+          preview.style.setProperty('--bw', state.edit.borderWidth + 'px');
+          preview.style.setProperty('--bc', state.edit.borderColor);
+        }
+
+        function syncEditUI() {
+          $$('#fitChips .fit-chip').forEach(function (c) {
+            c.classList.toggle('on', c.dataset.fit === state.edit.fit);
+          });
+          $('#zoomSlider').value = state.edit.zoom;
+          $('#zoomVal').textContent = state.edit.zoom + '%';
+          $('#posVal').textContent =
+            Math.round(state.edit.posX) + '% · ' + Math.round(state.edit.posY) + '%';
+          $('#opSlider').value = state.edit.opacity;
+          $('#opVal').textContent = state.edit.opacity + '%';
+          $('#bwSlider').value = state.edit.borderWidth;
+          $('#bwVal').textContent = state.edit.borderWidth + 'px';
+          $$('#bcSwatches .bc-swatch').forEach(function (s) {
+            s.classList.toggle('selected', s.dataset.hex === state.edit.borderColor);
+          });
+        }
+
+        // Fit chips
+        $$('#fitChips .fit-chip').forEach(function (c) {
+          c.addEventListener('click', function () {
+            state.edit.fit = c.dataset.fit;
+            applyEditToPreview();
+            syncEditUI();
+          });
+        });
+
+        // Zoom slider
+        $('#zoomSlider').addEventListener('input', function (e) {
+          state.edit.zoom = parseInt(e.target.value, 10);
+          applyEditToPreview();
+          syncEditUI();
+        });
+
+        // Pan — pointer drag on the preview translates into posX/posY %.
+        // touch-action:none on the element prevents the WebView from
+        // intercepting horizontal swipes as page scroll.
+        (function bindPan() {
+          var dragging = false;
+          var startX = 0, startY = 0;
+          var startPosX = 50, startPosY = 50;
+          preview.addEventListener('pointerdown', function (e) {
+            if (state.mode !== 'upload') return;
+            dragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startPosX = state.edit.posX;
+            startPosY = state.edit.posY;
+            preview.classList.add('dragging');
+            preview.setPointerCapture(e.pointerId);
+          });
+          preview.addEventListener('pointermove', function (e) {
+            if (!dragging) return;
+            var rect = preview.getBoundingClientRect();
+            var dxPct = ((e.clientX - startX) / rect.width) * 100;
+            var dyPct = ((e.clientY - startY) / rect.height) * 100;
+            // Invert: dragging right exposes the left side of the image
+            // (object-position % is "show this point at center").
+            state.edit.posX = Math.max(0, Math.min(100, startPosX - dxPct));
+            state.edit.posY = Math.max(0, Math.min(100, startPosY - dyPct));
+            applyEditToPreview();
+            syncEditUI();
+          });
+          function endDrag(e) {
+            if (!dragging) return;
+            dragging = false;
+            preview.classList.remove('dragging');
+            try { preview.releasePointerCapture(e.pointerId); } catch (_) {}
+          }
+          preview.addEventListener('pointerup', endDrag);
+          preview.addEventListener('pointercancel', endDrag);
+        })();
+
+        // Reset edit (only resets the upload-scoped fields)
+        $('#resetEdit').addEventListener('click', function () {
+          state.edit.fit = EDIT_DEFAULT.fit;
+          state.edit.zoom = EDIT_DEFAULT.zoom;
+          state.edit.posX = EDIT_DEFAULT.posX;
+          state.edit.posY = EDIT_DEFAULT.posY;
+          applyEditToPreview();
+          syncEditUI();
+        });
+
+        // Opacity slider — global
+        $('#opSlider').addEventListener('input', function (e) {
+          state.edit.opacity = parseInt(e.target.value, 10);
+          applyEditToPreview();
+          syncEditUI();
+        });
+
+        // Border width slider — global
+        $('#bwSlider').addEventListener('input', function (e) {
+          state.edit.borderWidth = parseInt(e.target.value, 10);
+          applyEditToPreview();
+          syncEditUI();
+        });
+
+        // Border color swatches
+        var BORDER_COLORS = [
+          '#000000', '#ffffff', '#58c7ff', '#c8a8ff', '#b9f0c5',
+          '#f0b9b9', '#ff8e3c', '#ffd166', '#1a1a1a', '#404040',
+        ];
+        (function renderBorderSwatches() {
+          var host = $('#bcSwatches');
+          host.innerHTML = '';
+          BORDER_COLORS.forEach(function (hex) {
+            var s = document.createElement('div');
+            s.className = 'bc-swatch';
+            s.style.background = hex;
+            s.dataset.hex = hex;
+            if (hex === state.edit.borderColor) s.classList.add('selected');
+            s.addEventListener('click', function () {
+              state.edit.borderColor = hex;
+              applyEditToPreview();
+              syncEditUI();
+            });
+            host.appendChild(s);
+          });
+        })();
+
+        // Initial paint of style-strip controls
+        syncEditUI();
 
         // ── Gradient ────────────────────────────────────────
         // 20-color curated palette — covers the obvious wallpaper
@@ -943,7 +1329,10 @@
           $('#apply').disabled = state.targets.size === 0 || !state.mode;
         }
 
-        // route(?src=…&kind=…&grad=…) — wallpaper.html parses
+        // route(?src=…&kind=…&grad=…&fit=…&zoom=…&px=…&py=…&op=…&bw=…&bc=…)
+        // wallpaper.html parses every key and applies it to #stage.
+        // We omit defaults to keep the URL short — important on data:
+        // URI uploads where every byte counts toward WebView limits.
         function buildRoute() {
           var p = new URLSearchParams();
           if (state.mode === 'preset') {
@@ -951,8 +1340,19 @@
           } else if (state.mode === 'upload') {
             p.set('src', state.upload.dataUrl);
             p.set('kind', state.upload.kind);
+            // Edit params apply only when there's raster content.
+            if (state.edit.fit !== EDIT_DEFAULT.fit) p.set('fit', state.edit.fit);
+            if (state.edit.zoom !== EDIT_DEFAULT.zoom) p.set('zoom', state.edit.zoom);
+            if (state.edit.posX !== EDIT_DEFAULT.posX) p.set('px', Math.round(state.edit.posX));
+            if (state.edit.posY !== EDIT_DEFAULT.posY) p.set('py', Math.round(state.edit.posY));
           } else if (state.mode === 'gradient') {
             p.set('grad', gradientCss(state.gradient));
+          }
+          // Style strip — opacity + border apply to every mode.
+          if (state.edit.opacity !== EDIT_DEFAULT.opacity) p.set('op', state.edit.opacity);
+          if (state.edit.borderWidth !== EDIT_DEFAULT.borderWidth) {
+            p.set('bw', state.edit.borderWidth);
+            p.set('bc', state.edit.borderColor.replace('#', ''));
           }
           return '/wallpaper.html?' + p.toString();
         }
