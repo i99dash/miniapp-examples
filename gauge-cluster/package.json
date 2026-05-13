@@ -1,0 +1,16 @@
+{
+  "name": "i99dash-example-gauge-cluster",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Full instrument-cluster mini-app — analog speedometer + tachometer, battery + range + climate readouts, doors + TPMS panel. Drinks live signals from `client.car.subscribe` on bridge v2.",
+  "type": "module",
+  "scripts": {
+    "dev": "i99dash dev",
+    "validate": "i99dash validate",
+    "build": "i99dash build",
+    "publish": "i99dash publish"
+  },
+  "devDependencies": {
+    "i99dash": "^5.0.0"
+  }
+}

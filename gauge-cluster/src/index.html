@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Gauge Cluster</title>
+    <link rel="icon" href="./icon.svg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #06080d;
+        --bg-panel: #0f1421;
+        --bg-card: #161b2c;
+        --line: #1f2a44;
+        --text: #e6e9ef;
+        --muted: #6c7a93;
+        --accent: #22d3ee;
+        --accent-hot: #ef4444;
+        --good: #22c55e;
+        --warn: #f59e0b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background:
+          radial-gradient(circle at 20% 0%, #0d1726 0%, transparent 50%),
+          radial-gradient(circle at 80% 100%, #0e2030 0%, transparent 50%),
+          var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        overflow: hidden;
+        font-feature-settings: 'tnum', 'cv11';
+      }
+      #app {
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 14px;
+        padding: 18px;
+      }
+      /* ── Header ─────────────────────────────────────────────────── */
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      header .left,
+      header .right {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+      }
+      header .brand {
+        color: var(--text);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      .badge {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        font-size: 12px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--muted);
+      }
+      .dot.connected {
+        background: var(--good);
+        box-shadow: 0 0 6px var(--good);
+      }
+      .dot.degraded {
+        background: var(--warn);
+      }
+      .dot.disconnected {
+        background: var(--accent-hot);
+      }
+      /* ── Main gauges row ────────────────────────────────────────── */
+      main {
+        display: grid;
+        grid-template-columns: 1fr 1.4fr 1fr;
+        gap: 14px;
+        min-height: 0;
+      }
+      .gauge-card {
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .gauge-card .label {
+        position: absolute;
+        top: 14px;
+        left: 18px;
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      .gauge-card .unit {
+        position: absolute;
+        bottom: 14px;
+        right: 18px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      canvas.gauge {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      .digital {
+        font-size: 64px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -1px;
+        line-height: 1;
+        margin-top: -16px;
+      }
+      .digital.small {
+        font-size: 28px;
+      }
+      .digital .sub {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-left: 6px;
+      }
+      /* ── Footer panel: doors + TPMS + climate ───────────────────── */
+      footer {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr 1fr;
+        gap: 14px;
+      }
+      .panel {
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 16px;
+      }
+      .panel-title {
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      /* Door grid */
+      .doors {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+        gap: 6px;
+      }
+      .door {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 4px;
+        text-align: center;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .door .state {
+        margin-top: 4px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--good);
+      }
+      .door.open .state {
+        color: var(--accent-hot);
+      }
+      .door.open {
+        border-color: var(--accent-hot);
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+      }
+      /* TPMS quad */
+      .tpms {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 8px;
+      }
+      .tyre {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 18px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+      }
+      .tyre .sub {
+        display: block;
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .tyre .unit {
+        font-size: 11px;
+        color: var(--muted);
+        margin-left: 3px;
+      }
+      /* Climate panel */
+      .climate-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .stat {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+      .stat .sub {
+        font-size: 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+      .stat .v {
+        font-size: 24px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        margin-top: 4px;
+      }
+      .stat .v .u {
+        font-size: 13px;
+        color: var(--muted);
+        font-weight: 500;
+        margin-left: 3px;
+      }
+      /* Connection error overlay */
+      #notice {
+        position: fixed;
+        inset: 0;
+        background: rgba(6, 8, 13, 0.92);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        font-size: 18px;
+        color: var(--muted);
+        flex-direction: column;
+        gap: 12px;
+      }
+      #notice.shown {
+        display: flex;
+      }
+      #notice strong {
+        color: var(--accent);
+        font-size: 22px;
+        font-weight: 600;
+      }
+      /* Pedal bars over the speedometer canvas */
+      .pedals {
+        position: absolute;
+        bottom: 50px;
+        left: 16px;
+        right: 16px;
+        display: flex;
+        gap: 10px;
+      }
+      .pedal {
+        flex: 1;
+        height: 6px;
+        background: var(--bg-card);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .pedal > div {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 80ms linear;
+      }
+      .pedal.brake > div {
+        background: var(--accent-hot);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="left">
+          <span class="brand">i99dash · Gauge Cluster</span>
+          <span class="badge"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span></span>
+        </div>
+        <div class="right">
+          <span class="badge" id="brand-badge">—</span>
+          <span class="badge" id="updated-badge">no data yet</span>
+        </div>
+      </header>
+
+      <main>
+        <!-- RPM gauge (left) -->
+        <div class="gauge-card">
+          <div class="label">RPM</div>
+          <canvas class="gauge" id="rpm-gauge" width="360" height="360"></canvas>
+          <div class="digital small">
+            <span id="rpm-text">0</span><span class="sub">rpm</span>
+          </div>
+          <div class="unit">motor / engine</div>
+        </div>
+
+        <!-- Speedometer (centre) -->
+        <div class="gauge-card">
+          <div class="label">Speed</div>
+          <canvas class="gauge" id="speed-gauge" width="440" height="440"></canvas>
+          <div class="digital">
+            <span id="speed-text">0</span><span class="sub">km/h</span>
+          </div>
+          <div class="pedals">
+            <div class="pedal"><div id="accel-bar"></div></div>
+            <div class="pedal brake"><div id="brake-bar"></div></div>
+          </div>
+          <div class="unit">accel / brake</div>
+        </div>
+
+        <!-- Battery + range (right) -->
+        <div class="gauge-card">
+          <div class="label">Battery</div>
+          <canvas class="gauge" id="battery-gauge" width="360" height="360"></canvas>
+          <div class="digital small">
+            <span id="battery-text">—</span><span class="sub">%</span>
+          </div>
+          <div class="unit"><span id="range-text">— km EV · — km fuel</span></div>
+        </div>
+      </main>
+
+      <footer>
+        <!-- Doors -->
+        <div class="panel">
+          <div class="panel-title">Closures</div>
+          <div class="doors">
+            <div class="door" id="d-lf">FL<div class="state">—</div></div>
+            <div class="door" id="d-rf">FR<div class="state">—</div></div>
+            <div class="door" id="d-lr">RL<div class="state">—</div></div>
+            <div class="door" id="d-rr">RR<div class="state">—</div></div>
+            <div class="door" id="d-trunk">TRUNK<div class="state">—</div></div>
+          </div>
+        </div>
+
+        <!-- TPMS -->
+        <div class="panel">
+          <div class="panel-title">Tyre pressure</div>
+          <div class="tpms">
+            <div class="tyre" id="t-lf"><span class="sub">FL</span><span id="t-lf-v">—</span><span class="unit">kPa</span></div>
+            <div class="tyre" id="t-rf"><span class="sub">FR</span><span id="t-rf-v">—</span><span class="unit">kPa</span></div>
+            <div class="tyre" id="t-lr"><span class="sub">RL</span><span id="t-lr-v">—</span><span class="unit">kPa</span></div>
+            <div class="tyre" id="t-rr"><span class="sub">RR</span><span id="t-rr-v">—</span><span class="unit">kPa</span></div>
+          </div>
+        </div>
+
+        <!-- Climate / temps -->
+        <div class="panel">
+          <div class="panel-title">Climate</div>
+          <div class="climate-grid">
+            <div class="stat"><div class="sub">Cabin</div><div class="v"><span id="c-cabin">—</span><span class="u">°C</span></div></div>
+            <div class="stat"><div class="sub">Outside</div><div class="v"><span id="c-out">—</span><span class="u">°C</span></div></div>
+            <div class="stat"><div class="sub">Fan</div><div class="v"><span id="c-fan">—</span><span class="u">/7</span></div></div>
+            <div class="stat"><div class="sub">AC</div><div class="v"><span id="c-ac">—</span></div></div>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <div id="notice">
+      <strong>Not inside i99dash host</strong>
+      <div>This mini-app only works inside the i99dash WebView. Open it from the car or via <code>i99dash dev</code>.</div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

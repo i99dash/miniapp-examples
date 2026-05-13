@@ -1,0 +1,17 @@
+{
+  "id": "gauge-cluster",
+  "name": {
+    "en": "Gauge Cluster",
+    "ar": "لوحة العدّادات"
+  },
+  "description": {
+    "en": "Full instrument-cluster mini-app reading live BYD signals via `client.car.subscribe` on bridge v2. Speedometer + tachometer + battery + range + climate + doors + TPMS in a single tile.",
+    "ar": "تطبيق لوحة عدّادات كاملة يقرأ إشارات BYD المباشرة عبر `client.car.subscribe` على الجسر v2. عدّاد السرعة، عدّاد الدوران، البطارية، المدى، التكييف، الأبواب، وضغط الإطارات في لوحة واحدة."
+  },
+  "icon": "./icon.svg",
+  "url": "https://miniapps.i99dash.app/gauge-cluster/",
+  "version": "0.1.0",
+  "minHostVersion": "2.0.0",
+  "category": "vehicle",
+  "safeWhileDriving": true
+}
