@@ -11,6 +11,6 @@
     "publish": "i99dash publish"
   },
   "devDependencies": {
-    "i99dash": "^3.0.0"
+    "i99dash": "^5.0.0"
   }
 }
