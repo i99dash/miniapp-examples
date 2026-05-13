@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Battery Analyzer</title>
+    <link rel="icon" href="./icon.svg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #06080d;
+        --bg-panel: #0f1421;
+        --bg-card: #161b2c;
+        --line: #1f2a44;
+        --text: #e6e9ef;
+        --muted: #6c7a93;
+        --accent: #22d3ee;
+        --good: #22c55e;
+        --warn: #f59e0b;
+        --bad: #ef4444;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background:
+          radial-gradient(circle at 20% 0%, #0d1f26 0%, transparent 50%),
+          radial-gradient(circle at 80% 100%, #0e2030 0%, transparent 50%),
+          var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        overflow: hidden;
+        font-feature-settings: 'tnum', 'cv11';
+      }
+      #app {
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 14px;
+        padding: 18px;
+      }
+      /* ── Header ─────────────────────────────────────────────────── */
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        color: var(--muted);
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      header .left, header .right { display: flex; gap: 12px; align-items: center; }
+      header .brand { color: var(--text); font-weight: 600; letter-spacing: 0.5px; }
+      .badge {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        font-size: 12px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--muted);
+      }
+      .dot.connected, .dot.good { background: var(--good); box-shadow: 0 0 6px var(--good); }
+      .dot.warn, .dot.degraded { background: var(--warn); }
+      .dot.disconnected, .dot.bad { background: var(--bad); }
+
+      /* ── Top SOC strip ──────────────────────────────────────────── */
+      .soc-strip {
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 18px 24px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 24px;
+      }
+      .soc-strip .soc-big {
+        font-size: 80px;
+        font-weight: 700;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -2px;
+      }
+      .soc-strip .soc-big .unit { font-size: 30px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+      .soc-bar {
+        flex: 1;
+        height: 14px;
+        background: var(--bg-card);
+        border-radius: 7px;
+        overflow: hidden;
+        position: relative;
+      }
+      .soc-bar > .fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--bad), var(--warn) 25%, var(--good) 50%);
+        transition: width 200ms ease-out;
+      }
+      .soc-bar > .tick {
+        position: absolute;
+        top: -4px;
+        bottom: -4px;
+        width: 2px;
+        background: var(--text);
+        opacity: 0.4;
+      }
+      .soc-strip .meta { display: flex; flex-direction: column; gap: 4px; min-width: 220px; text-align: right; }
+      .soc-strip .meta .row { font-size: 14px; color: var(--muted); }
+      .soc-strip .meta .row b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+      /* ── Main 3-column grid ─────────────────────────────────────── */
+      main {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 14px;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .card {
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .card .title {
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      .stat {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+      .stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .stat .label {
+        font-size: 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+      .stat .value {
+        font-size: 22px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        margin-top: 4px;
+      }
+      .stat .value .u { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+      .stat .hint { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
+      /* Cell balance visualisation */
+      .balance-chart {
+        position: relative;
+        height: 80px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+      }
+      .balance-chart .axis {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        height: 2px;
+        background: var(--line);
+      }
+      .balance-chart .min, .balance-chart .max, .balance-chart .avg {
+        position: absolute;
+        bottom: 14px;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        transform: translateX(-50%);
+      }
+      .balance-chart .min { color: var(--accent); }
+      .balance-chart .max { color: var(--warn); }
+      .balance-chart .avg { color: var(--text); font-weight: 600; }
+      .balance-chart .marker {
+        position: absolute;
+        bottom: 12px;
+        width: 2px;
+        height: 16px;
+        background: currentColor;
+      }
+      .balance-chart .label {
+        position: absolute;
+        bottom: 30px;
+        font-size: 10px;
+        color: var(--muted);
+        transform: translateX(-50%);
+        white-space: nowrap;
+      }
+
+      /* Power flow gauge */
+      .power-flow {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        position: relative;
+      }
+      .power-flow .scale {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .power-flow .bar {
+        height: 14px;
+        background: linear-gradient(90deg, var(--good) 0%, var(--good) 50%, var(--bad) 50%, var(--bad) 100%);
+        opacity: 0.25;
+        border-radius: 7px;
+        margin: 8px 0;
+        position: relative;
+      }
+      .power-flow .needle {
+        position: absolute;
+        top: -4px;
+        bottom: -4px;
+        width: 3px;
+        background: var(--text);
+        left: 50%;
+        transition: left 200ms ease-out;
+      }
+      .power-flow .readout {
+        text-align: center;
+        font-size: 26px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        margin-top: 6px;
+      }
+      .power-flow .readout.regen { color: var(--good); }
+      .power-flow .readout.discharge { color: var(--bad); }
+      .power-flow .readout .u { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+
+      /* Health verdict */
+      .verdict {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+      }
+      .verdict .icon {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        border-radius: 10px;
+        background: var(--good);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--bg);
+      }
+      .verdict.warn .icon { background: var(--warn); }
+      .verdict.bad .icon { background: var(--bad); }
+      .verdict .body { flex: 1; }
+      .verdict .head { font-size: 14px; font-weight: 600; }
+      .verdict .detail { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+
+      /* Footer: lifetime stats */
+      footer {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 14px;
+      }
+      footer .stat .value { font-size: 18px; }
+
+      /* Notice overlay */
+      #notice {
+        position: fixed;
+        inset: 0;
+        background: rgba(6, 8, 13, 0.92);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        font-size: 18px;
+        color: var(--muted);
+        flex-direction: column;
+        gap: 12px;
+      }
+      #notice.shown { display: flex; }
+      #notice strong { color: var(--accent); font-size: 22px; font-weight: 600; }
+
+      /* Pulse for charging-active state */
+      .pulse-charging {
+        animation: pulse 2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3); }
+        50%      { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="left">
+          <span class="brand">i99dash · Battery Analyzer</span>
+          <span class="badge"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span></span>
+        </div>
+        <div class="right">
+          <span class="badge" id="brand-badge">—</span>
+          <span class="badge" id="charge-badge">checking…</span>
+          <span class="badge" id="updated-badge">no data yet</span>
+        </div>
+      </header>
+
+      <!-- SOC strip -->
+      <div class="soc-strip">
+        <div class="soc-big"><span id="soc-pct">—</span><span class="unit">%</span></div>
+        <div class="soc-bar">
+          <div class="fill" id="soc-fill" style="width: 0"></div>
+          <div class="tick" id="soc-target-tick" style="display:none"></div>
+        </div>
+        <div class="meta">
+          <div class="row">EV range · <b id="range-ev">— km</b></div>
+          <div class="row">Fuel range · <b id="range-fuel">— km</b></div>
+          <div class="row">Pack power · <b id="pack-wh">— Wh</b></div>
+        </div>
+      </div>
+
+      <!-- 3-column main -->
+      <main>
+        <!-- Left: Health + Capacity -->
+        <div class="card">
+          <div class="title">Battery Health</div>
+          <div class="verdict" id="health-verdict">
+            <div class="icon" id="health-icon">?</div>
+            <div class="body">
+              <div class="head" id="health-head">Checking battery state…</div>
+              <div class="detail" id="health-detail">Live readings populate as the BMS reports.</div>
+            </div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="label">BMS health</div>
+              <div class="value"><span id="bms-health">—</span><span class="u">%</span></div>
+              <div class="hint">100 % = factory-new. Drops with cycles + age.</div>
+            </div>
+            <div class="stat">
+              <div class="label">Coolant life</div>
+              <div class="value"><span id="coolant-life">—</span><span class="u">days</span></div>
+              <div class="hint">Blade-battery coolant service interval.</div>
+            </div>
+            <div class="stat">
+              <div class="label">Capacity</div>
+              <div class="value"><span id="pack-capacity">—</span><span class="u">kWh</span></div>
+              <div class="hint">Total pack capacity.</div>
+            </div>
+            <div class="stat">
+              <div class="label">Pack voltage</div>
+              <div class="value"><span id="pack-volts">—</span><span class="u">V</span></div>
+              <div class="hint">Nominal HV bus voltage.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Centre: Cell balance + power flow -->
+        <div class="card">
+          <div class="title">Cell &amp; Thermal Balance</div>
+          <div class="stat">
+            <div class="label">Cell voltage spread (max − min)</div>
+            <div class="balance-chart">
+              <div class="axis"></div>
+              <div class="label" id="vmin-label" style="left: 8%">min —</div>
+              <div class="marker" id="vmin-marker" style="left: 8%; color: var(--accent)"></div>
+              <div class="label" id="vavg-label" style="left: 50%">avg</div>
+              <div class="marker" id="vavg-marker" style="left: 50%; color: var(--text)"></div>
+              <div class="label" id="vmax-label" style="left: 92%">max —</div>
+              <div class="marker" id="vmax-marker" style="left: 92%; color: var(--warn)"></div>
+            </div>
+            <div class="hint" style="margin-top: 6px">
+              Healthy packs sit under <b>30 mV</b> spread. Δ <span id="v-delta-text">—</span> mV.
+            </div>
+          </div>
+          <div class="stat">
+            <div class="label">Cell temperature</div>
+            <div class="balance-chart">
+              <div class="axis"></div>
+              <div class="label" id="tmin-label" style="left: 8%">min —</div>
+              <div class="marker" id="tmin-marker" style="left: 8%; color: var(--accent)"></div>
+              <div class="label" id="tavg-label" style="left: 50%">avg</div>
+              <div class="marker" id="tavg-marker" style="left: 50%; color: var(--text)"></div>
+              <div class="label" id="tmax-label" style="left: 92%">max —</div>
+              <div class="marker" id="tmax-marker" style="left: 92%; color: var(--warn)"></div>
+            </div>
+            <div class="hint" style="margin-top: 6px">
+              Spread &gt; <b>5 °C</b> means uneven cooling. Δ <span id="t-delta-text">—</span> °C.
+            </div>
+          </div>
+          <div class="power-flow">
+            <div class="scale">
+              <span>regen <b id="max-chg-kw">—</b> kW</span>
+              <span>idle 0 kW</span>
+              <span>discharge <b id="max-dis-kw">—</b> kW</span>
+            </div>
+            <div class="bar">
+              <div class="needle" id="power-needle"></div>
+            </div>
+            <div class="readout" id="power-readout">— kW</div>
+          </div>
+        </div>
+
+        <!-- Right: Charging -->
+        <div class="card">
+          <div class="title">Charging</div>
+          <div class="stat" id="chg-card">
+            <div class="label">State</div>
+            <div class="value" id="chg-state">—</div>
+            <div class="hint" id="chg-state-hint">Plug in to start a charging session.</div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="label">Charge power</div>
+              <div class="value"><span id="chg-power">—</span><span class="u">kW</span></div>
+              <div class="hint">Live wall-to-pack rate.</div>
+            </div>
+            <div class="stat">
+              <div class="label">Target SOC</div>
+              <div class="value"><span id="chg-target">—</span><span class="u">%</span></div>
+              <div class="hint">Charge stops here.</div>
+            </div>
+            <div class="stat">
+              <div class="label">Time to full</div>
+              <div class="value" id="chg-eta">—</div>
+              <div class="hint">Estimate from BMS.</div>
+            </div>
+            <div class="stat">
+              <div class="label">Voltage · current</div>
+              <div class="value" id="chg-vi">— V · — A</div>
+              <div class="hint">DC bus during charge.</div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Lifetime stats footer -->
+      <footer>
+        <div class="card" style="padding: 12px 14px; flex-direction: column; gap: 0">
+          <div class="title" style="margin-bottom: 6px">Lifetime electric</div>
+          <div class="stat" style="border: none; background: transparent; padding: 0">
+            <div class="value"><span id="life-elec">—</span><span class="u">kWh</span></div>
+          </div>
+        </div>
+        <div class="card" style="padding: 12px 14px; flex-direction: column; gap: 0">
+          <div class="title" style="margin-bottom: 6px">Lifetime fuel</div>
+          <div class="stat" style="border: none; background: transparent; padding: 0">
+            <div class="value"><span id="life-fuel">—</span><span class="u">L</span></div>
+          </div>
+        </div>
+        <div class="card" style="padding: 12px 14px; flex-direction: column; gap: 0">
+          <div class="title" style="margin-bottom: 6px">Instant elec</div>
+          <div class="stat" style="border: none; background: transparent; padding: 0">
+            <div class="value"><span id="inst-elec">—</span><span class="u">kWh/100km</span></div>
+          </div>
+        </div>
+        <div class="card" style="padding: 12px 14px; flex-direction: column; gap: 0">
+          <div class="title" style="margin-bottom: 6px">Regen now</div>
+          <div class="stat" style="border: none; background: transparent; padding: 0">
+            <div class="value"><span id="regen-now">—</span><span class="u">kW</span></div>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <div id="notice">
+      <strong>Not inside i99dash host</strong>
+      <div>This mini-app only works inside the i99dash WebView. Open it from the car or via <code>i99dash dev</code>.</div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

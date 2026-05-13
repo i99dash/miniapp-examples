@@ -1,0 +1,17 @@
+{
+  "id": "battery-analyzer",
+  "name": {
+    "en": "Battery Analyzer",
+    "ar": "محلل البطارية"
+  },
+  "description": {
+    "en": "Live battery health + charging diagnostics. State-of-charge, cell-voltage balance, thermal balance, regen flow, charging power, and lifetime stats — each surfaced with plain-English explanations and warning indicators.",
+    "ar": "تشخيص حالة البطارية والشحن المباشر. حالة الشحن، توازن جهد الخلايا، التوازن الحراري، تدفق الطاقة المستردة، قوة الشحن، والإحصائيات مدى الحياة — مع شرح بسيط ومؤشرات تنبيه."
+  },
+  "icon": "./icon.svg",
+  "url": "https://miniapps.i99dash.app/battery-analyzer/",
+  "version": "0.1.0",
+  "minHostVersion": "2.0.0",
+  "category": "vehicle",
+  "safeWhileDriving": true
+}
