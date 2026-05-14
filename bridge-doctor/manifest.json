@@ -1,0 +1,17 @@
+{
+  "id": "bridge-doctor",
+  "name": {
+    "en": "Bridge Doctor",
+    "ar": "طبيب الجسر"
+  },
+  "description": {
+    "en": "Probes every i99dash bridge handler and reports what's missing or broken. Includes a one-tap DiShare passenger-cast reproducer.",
+    "ar": "يفحص كل معالجات جسر i99dash ويُظهر ما هو مفقود أو معطّل. يتضمّن مُعيد إنتاج بضغطة واحدة لمشاركة شاشة الراكب عبر DiShare."
+  },
+  "icon": "./icon.svg",
+  "url": "https://miniapps.i99dash.app/bridge-doctor/",
+  "version": "0.1.4",
+  "minHostVersion": "2.0.0",
+  "category": "developer",
+  "safeWhileDriving": false
+}

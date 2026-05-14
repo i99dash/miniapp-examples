@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Bridge Doctor</title>
+    <link rel="icon" href="./icon.svg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #06080d;
+        --bg-panel: #0f1421;
+        --bg-card: #161b2c;
+        --line: #1f2a44;
+        --text: #e6e9ef;
+        --muted: #6c7a93;
+        --accent: #22d3ee;
+        --good: #22c55e;
+        --warn: #f59e0b;
+        --bad: #ef4444;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background:
+          radial-gradient(circle at 20% 0%, #0d1f26 0%, transparent 50%),
+          radial-gradient(circle at 80% 100%, #0e2030 0%, transparent 50%),
+          var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-feature-settings: 'tnum', 'cv11';
+      }
+      body {
+        overflow-y: auto;
+      }
+      #app {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 20px 18px 60px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* ── Header ─────────────────────────────────────────────────── */
+      header {
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      header .brand {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        font-size: 15px;
+      }
+      header .brand .v {
+        color: var(--muted);
+        font-weight: 400;
+        margin-left: 8px;
+        font-size: 13px;
+      }
+      header .meta {
+        color: var(--muted);
+        font-size: 12px;
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      header .meta b { color: var(--text); font-weight: 600; }
+      .btn {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 100ms ease-out, border-color 100ms ease-out;
+      }
+      .btn:hover { background: #1d2438; border-color: #2c3a5c; }
+      .btn:active { background: #161b2c; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn.primary {
+        background: var(--accent);
+        color: #04161b;
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      .btn.primary:hover { background: #67e8f9; border-color: #67e8f9; }
+
+      /* ── Section card ───────────────────────────────────────────── */
+      section {
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      section h2 {
+        margin: 0;
+        padding: 12px 18px;
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: rgba(255,255,255,0.015);
+        border-bottom: 1px solid var(--line);
+        font-weight: 600;
+      }
+
+      /* ── Row ────────────────────────────────────────────────────── */
+      .row {
+        border-bottom: 1px solid var(--line);
+      }
+      .row:last-child { border-bottom: none; }
+      .row .head {
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        gap: 12px;
+        padding: 12px 18px;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+      }
+      .row .head:hover { background: rgba(255,255,255,0.02); }
+      .row .ico {
+        font-size: 18px;
+        line-height: 1;
+        text-align: center;
+        font-variant-emoji: text;
+      }
+      .row .ico.ok    { color: var(--good); }
+      .row .ico.fail  { color: var(--bad); }
+      .row .ico.warn  { color: var(--warn); }
+      .row .ico.skip  { color: var(--muted); }
+      .row .ico.pend  { color: var(--muted); animation: spin 1.2s linear infinite; display: inline-block; }
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      .row .label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .row .label .name {
+        font-size: 14px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+      }
+      .row .label .summary {
+        font-size: 12px;
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .row .label .summary.fail { color: var(--bad); }
+      .row .label .summary.warn { color: var(--warn); }
+      .row .chevron {
+        color: var(--muted);
+        font-size: 12px;
+        transition: transform 150ms ease-out;
+      }
+      .row[data-open="1"] .chevron { transform: rotate(90deg); }
+
+      .row .details {
+        display: none;
+        padding: 0 18px 14px 58px;
+      }
+      .row[data-open="1"] .details { display: block; }
+      .row .hint {
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        color: #fde68a;
+        margin-bottom: 10px;
+        line-height: 1.5;
+      }
+      .row .hint b { color: var(--warn); }
+      .row pre {
+        margin: 0;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 11.5px;
+        font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+        color: #cbd5e1;
+        max-height: 280px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .row .pre-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+        margin: 8px 0 4px;
+      }
+
+      /* ── Capabilities grid ───────────────────────────────────────── */
+      .cap-grid {
+        padding: 12px 18px 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 6px 14px;
+      }
+      .cap {
+        font-size: 12.5px;
+        font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--text);
+      }
+      .cap .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: 0 0 8px;
+      }
+      .cap.present .dot { background: var(--good); }
+      .cap.missing { color: var(--bad); }
+      .cap.missing .dot { background: var(--bad); }
+      .cap-note {
+        padding: 0 18px 12px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      /* ── DiShare quick test card ─────────────────────────────────── */
+      .dishare {
+        padding: 16px 18px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .dishare .what {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .dishare .what b { color: var(--text); }
+      .dishare-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .dishare .last {
+        font-size: 12px;
+        color: var(--muted);
+        font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+        padding: 8px 12px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        min-height: 1.4em;
+      }
+      .dishare .last.ok { color: var(--good); border-color: rgba(34, 197, 94, 0.4); }
+      .dishare .last.bad { color: var(--bad); border-color: rgba(239, 68, 68, 0.4); }
+
+      /* ── Notice overlay ──────────────────────────────────────────── */
+      #notice {
+        position: fixed;
+        inset: 0;
+        background: rgba(6, 8, 13, 0.92);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        font-size: 16px;
+        color: var(--muted);
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px;
+        text-align: center;
+      }
+      #notice.shown { display: flex; }
+      #notice strong { color: var(--accent); font-size: 20px; font-weight: 600; }
+      #notice code {
+        background: var(--bg-card);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div>
+          <div class="brand">i99dash · bridge-doctor<span class="v">v0.1.4</span></div>
+          <div class="meta" id="env-meta">
+            <span>host = <b id="host-id">…</b></span>
+            <span>bridge = <b id="bridge-ver">…</b></span>
+            <span>locale = <b id="locale-id">…</b></span>
+          </div>
+        </div>
+        <button class="btn primary" id="rerun-btn">Re-run probes</button>
+      </header>
+
+      <section>
+        <h2>Capabilities</h2>
+        <div class="cap-grid" id="cap-grid">
+          <span class="cap-note">Probing host…</span>
+        </div>
+        <div class="cap-note" id="cap-note"></div>
+      </section>
+
+      <section>
+        <h2>Handler probes</h2>
+        <div id="probes"></div>
+      </section>
+
+      <section>
+        <h2>DiShare quick test</h2>
+        <div class="dishare">
+          <div class="what">
+            Casts the i99dash app itself (<b>com.i99dev.i99dash</b>) onto the
+            passenger panel via <b>pkg.launch · target=passenger</b>. This is the
+            exact path mini-apps use to render on the FSE screen — Di5.0 routes
+            through DiShare, Di5.1 routes through am-start. Tap below; the result
+            (<code>path</code> + any error code) is shown verbatim.
+          </div>
+          <div class="dishare-actions">
+            <button class="btn primary" id="dishare-btn">Cast i99dash to passenger panel</button>
+            <button class="btn" id="dishare-cluster-btn">Try cluster (Di5.1)</button>
+          </div>
+          <div class="last" id="dishare-last">Not run yet.</div>
+        </div>
+      </section>
+    </div>
+
+    <div id="notice">
+      <strong>Not inside i99dash host</strong>
+      <div>
+        Bridge Doctor only works inside the i99dash WebView (it tests the host
+        bridge directly via <code>window.flutter_inappwebview.callHandler</code>).
+        Open it from a car or via <code>i99dash dev</code>.
+      </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

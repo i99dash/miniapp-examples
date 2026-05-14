@@ -1,0 +1,16 @@
+{
+  "_comment": "Static bundle — `appRoot` is `./src` (HTML + JS + icon). No transpile step.",
+  "appRoot": "./src",
+  "dev": {
+    "port": 5183,
+    "host": "127.0.0.1",
+    "context": {
+      "userId": "demo-user-01",
+      "activeCarId": "byd:bydE51DB8F5AE5E3713",
+      "locale": "en",
+      "isDark": true,
+      "appVersion": "0.1.0",
+      "appId": "bridge-doctor"
+    }
+  }
+}
