@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Gauge Builder</title>
+    <link rel="icon" href="./icon.svg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #06080d;
+        --bg-panel: #0f1421;
+        --bg-card: #161b2c;
+        --line: #1f2a44;
+        --line-hot: #22d3ee;
+        --text: #e6e9ef;
+        --muted: #6c7a93;
+        --accent: #22d3ee;
+        --good: #22c55e;
+        --warn: #f59e0b;
+        --hot: #ef4444;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        overflow: hidden;
+        font-feature-settings: 'tnum';
+      }
+      #app {
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr auto auto;
+        gap: 14px;
+        padding: 18px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        color: var(--muted);
+        gap: 12px;
+      }
+      header .left, header .right {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      header .brand {
+        color: var(--text);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      .badge {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        font-size: 12px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .badge.warn { border-color: var(--warn); color: var(--warn); }
+      .badge.hot  { border-color: var(--hot);  color: var(--hot); }
+      .dot {
+        width: 7px; height: 7px; border-radius: 50%; background: var(--muted);
+      }
+      .dot.connected { background: var(--good); box-shadow: 0 0 6px var(--good); }
+      .dot.degraded { background: var(--warn); }
+      .dot.disconnected { background: var(--hot); }
+
+      main {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 14px;
+        min-height: 0;
+      }
+      /* ── Palette ─────────────────────────────────────────────── */
+      .palette {
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .palette-title {
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+      .widget-card {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: rgba(34, 211, 238, 0.15);
+        transition: transform 100ms ease, border-color 100ms ease;
+      }
+      .widget-card:active { transform: scale(0.97); }
+      .widget-card.selected {
+        border-color: var(--line-hot);
+        background: #0d1a2a;
+        box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.25);
+      }
+      .widget-card .glyph {
+        width: 28px; height: 28px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        color: #06121f;
+        flex: none;
+      }
+      .palette-hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+        line-height: 1.5;
+      }
+
+      /* ── Slots ───────────────────────────────────────────────── */
+      .slots {
+        display: grid;
+        grid-template-columns: 1fr 1.3fr 1fr;
+        gap: 14px;
+        min-height: 0;
+      }
+      .slot {
+        background: var(--bg-panel);
+        border: 1px dashed var(--line);
+        border-radius: 18px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        cursor: pointer;
+        -webkit-tap-highlight-color: rgba(34, 211, 238, 0.08);
+        transition: border-color 120ms ease, background 120ms ease;
+      }
+      .slot.over { border-color: var(--line-hot); border-style: solid; background: #0d1a2a; }
+      /* Show that the slot is ready to receive when a widget is selected. */
+      body.placing .slot:not(.filled) {
+        border-color: var(--line-hot);
+        background: #0d1a2a;
+      }
+      body.placing .slot:not(.filled) .empty::after {
+        content: ' ← tap to place here';
+        color: var(--accent);
+      }
+      .slot .empty {
+        color: var(--muted);
+        font-size: 13px;
+        letter-spacing: 0.4px;
+        text-align: center;
+        padding: 0 14px;
+      }
+      .slot .slot-no {
+        position: absolute;
+        top: 12px;
+        left: 16px;
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      .slot canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .slot .clear-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: var(--bg-card);
+        color: var(--muted);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        display: none;
+      }
+      .slot.filled .clear-btn { display: block; }
+
+      /* ── Cluster-aspect preview strip ────────────────────────── */
+      .cluster-preview {
+        background: var(--bg-panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 10px 14px 12px;
+      }
+      .cluster-preview .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .cluster-preview .head .live {
+        text-transform: none;
+        letter-spacing: 0.2px;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        font-weight: 500;
+        color: var(--muted);
+      }
+      .cluster-preview .head .live .dot.live {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--good);
+        box-shadow: 0 0 6px var(--good);
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+      /* Strip is sized to the cluster's native aspect (1920:720). Use
+         aspect-ratio so the canvas's display-rect always matches the
+         cluster surface, regardless of the IVI's window width. */
+      .cluster-preview .strip {
+        width: 100%;
+        aspect-ratio: 1920 / 720;
+        max-height: 220px;
+        background: radial-gradient(circle at 50% 0%, #0d1726 0%, transparent 60%), var(--bg);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .cluster-preview .strip canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* ── Footer ──────────────────────────────────────────────── */
+      footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      footer .left, footer .right {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      #push {
+        background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+        color: #06121f;
+        border: 0;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        letter-spacing: 0.3px;
+      }
+      #push:disabled {
+        background: #1f2a44;
+        color: var(--muted);
+        cursor: not-allowed;
+      }
+      #cap-banner {
+        background: #2a1a0d;
+        border: 1px solid var(--warn);
+        color: #fcd9a8;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        display: none;
+      }
+      #cap-banner.shown { display: inline-block; }
+      /* `.info` overrides — used when the resolver falls back to the
+         driver-labelled passenger panel; not an error, just a notice. */
+      #cap-banner.info {
+        background: #0a1a2a;
+        border-color: var(--accent);
+        color: #b9d8f0;
+      }
+
+      /* Connection error overlay */
+      #notice {
+        position: fixed;
+        inset: 0;
+        background: rgba(6, 8, 13, 0.92);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        font-size: 18px;
+        color: var(--muted);
+        flex-direction: column;
+        gap: 12px;
+        padding: 24px;
+        text-align: center;
+      }
+      #notice.shown { display: flex; }
+      #notice strong { color: var(--accent); font-size: 22px; font-weight: 600; }
+
+      /* Debug pane — fixed bottom-left, toggleable. */
+      #debug-pane {
+        position: fixed;
+        bottom: 14px;
+        left: 14px;
+        max-width: 480px;
+        max-height: 40vh;
+        background: rgba(15, 20, 33, 0.96);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 11px;
+        color: var(--muted);
+        z-index: 90;
+        display: none;
+        overflow: hidden;
+      }
+      #debug-pane.shown { display: flex; flex-direction: column; }
+      #debug-pane .debug-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        font-size: 10px;
+      }
+      #debug-pane button {
+        background: transparent;
+        color: var(--muted);
+        border: 0;
+        cursor: pointer;
+        padding: 0 4px;
+        font-size: 14px;
+      }
+      #debug-pane pre {
+        margin: 0;
+        font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.45;
+        color: #b9d8f0;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      /* Make the trim badge tappable as the debug toggle. */
+      #trim-badge { cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="left">
+          <span class="brand">i99dash · Gauge Builder</span>
+          <span class="badge"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span></span>
+        </div>
+        <div class="right">
+          <span class="badge" id="brand-badge">—</span>
+          <span class="badge" id="trim-badge">trim: —</span>
+        </div>
+      </header>
+
+      <main>
+        <aside class="palette">
+          <div class="palette-title">Widgets</div>
+          <div id="palette-list"></div>
+          <div class="palette-hint">
+            Tap a widget, then tap a slot to place it. Tap the same widget again to cancel. Tap × on a slot to clear it.
+          </div>
+        </aside>
+
+        <section class="slots" id="slots">
+          <div class="slot" data-slot="0">
+            <div class="slot-no">Slot 1</div>
+            <canvas></canvas>
+            <div class="empty">Drop a widget here</div>
+            <button class="clear-btn" data-clear="0">× clear</button>
+          </div>
+          <div class="slot" data-slot="1">
+            <div class="slot-no">Slot 2 · centre</div>
+            <canvas></canvas>
+            <div class="empty">Drop a widget here</div>
+            <button class="clear-btn" data-clear="1">× clear</button>
+          </div>
+          <div class="slot" data-slot="2">
+            <div class="slot-no">Slot 3</div>
+            <canvas></canvas>
+            <div class="empty">Drop a widget here</div>
+            <button class="clear-btn" data-clear="2">× clear</button>
+          </div>
+        </section>
+      </main>
+
+      <section class="cluster-preview">
+        <div class="head">
+          <span>Cluster preview · live</span>
+          <span class="live">
+            <span class="dot live"></span>
+            <span id="freshness">streaming live signals</span>
+          </span>
+        </div>
+        <div class="strip">
+          <canvas id="preview-canvas"></canvas>
+        </div>
+      </section>
+
+      <footer>
+        <div class="left">
+          <span id="cap-banner">Cluster pixels not supported on this trim — preview only.</span>
+          <span class="badge" id="layout-saved">layout: not saved</span>
+        </div>
+        <div class="right">
+          <button id="reset">Reset</button>
+          <button id="push" disabled>Push to cluster</button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Debug pane (toggle by tapping the trim badge). Pre-fills with
+         the raw display.list response so we can see what the host
+         actually emits — chromium's console.info isn't bridged to
+         logcat on the Leopard 8 head unit build. -->
+    <div id="debug-pane">
+      <div class="debug-head">
+        <span>Debug · raw bridge responses</span>
+        <button id="debug-close" type="button">×</button>
+      </div>
+      <pre id="debug-output">(waiting for responses…)</pre>
+    </div>
+
+    <div id="notice">
+      <strong>Not inside i99dash host</strong>
+      <div>This mini-app only works inside the i99dash WebView. Open it from the car or via <code>i99dash dev</code>.</div>
+    </div>
+
+    <script type="module" src="./editor.js"></script>
+  </body>
+</html>

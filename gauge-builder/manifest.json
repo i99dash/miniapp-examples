@@ -1,0 +1,17 @@
+{
+  "id": "gauge-builder",
+  "name": {
+    "en": "Gauge Builder",
+    "ar": "منشئ لوحة العدّادات"
+  },
+  "description": {
+    "en": "Customize your instrument cluster by dragging widgets into three gauge slots on the IVI, then push the layout to the cluster. Reads live BYD signals via the v2 bridge. DiLink 5.1 renders to the cluster (XDJA `_1` slot); DiLink 5.0 falls back to an IVI-only preview because cluster pixel rendering isn't supported on that trim.",
+    "ar": "خصّص لوحة العدّادات بسحب الأدوات إلى ثلاث خانات على شاشة الوسائط ثم أرسل التخطيط إلى شاشة العدّادات. يقرأ إشارات BYD المباشرة عبر جسر v2."
+  },
+  "icon": "./icon.svg",
+  "url": "https://miniapps.i99dash.app/gauge-builder/",
+  "version": "0.1.6",
+  "minHostVersion": "2.0.0",
+  "category": "vehicle",
+  "safeWhileDriving": false
+}
