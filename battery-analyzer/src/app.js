@@ -371,16 +371,39 @@ function drawBalanceChart(prefix, { min, max, avg, halfWindow, halfHealthy, suff
 
   // Labels need overlap protection — when the spread is tight (e.g.
   // 3 mV), min/avg/max all sit at ~50% and the three text labels
-  // collide. Push min left, max right, and only keep the avg label
-  // when there's room for all three. ~12 % horizontal gap is the
-  // minimum readable separation given our font size.
+  // collide. When the spread is huge (Δ > 2 × halfWindow) min/max
+  // are clamped to chart edges and translateX(-50%) puts half the
+  // label outside the chart's overflow:hidden box, truncating to
+  // garbled text like "47" instead of "3447". Pin those edge cases
+  // to the chart's inner edges with no transform.
   const MIN_GAP = 12;
+  const EDGE_THRESHOLD = 6; // % from chart edge before we pin
   const spreadPct = maxPct - minPct;
-  labels.min.style.left = `${minPct}%`;
-  labels.max.style.left = `${maxPct}%`;
-  labels.avg.style.left = `${avgPct}%`;
   labels.min.textContent = formatVal(min, suffix);
   labels.max.textContent = formatVal(max, suffix);
+  labels.avg.style.left = `${avgPct}%`;
+  labels.avg.style.right = '';
+  labels.avg.style.transform = '';
+
+  // Pin min label to left edge when it'd otherwise clip; same for max
+  // at right edge. Otherwise centre over the marker.
+  if (minPct < EDGE_THRESHOLD) {
+    labels.min.style.left = '6px';
+    labels.min.style.transform = 'none';
+  } else {
+    labels.min.style.left = `${minPct}%`;
+    labels.min.style.transform = '';
+  }
+  if (maxPct > 100 - EDGE_THRESHOLD) {
+    labels.max.style.left = '';
+    labels.max.style.right = '6px';
+    labels.max.style.transform = 'none';
+  } else {
+    labels.max.style.left = `${maxPct}%`;
+    labels.max.style.right = '';
+    labels.max.style.transform = '';
+  }
+
   if (spreadPct < MIN_GAP * 2) {
     // Tight pack — collapse to a single centred label that shows the
     // mid-point. min/max are visible via the marker ticks and the
@@ -449,9 +472,21 @@ function paintPowerFlow() {
     readout.innerHTML = `0<span class="u">kW idle</span>`;
   }
 
-  document.getElementById('regen-now').textContent =
-    regen == null ? '—' : (regen > 0 ? `+${regen.toFixed(1)}` : regen.toFixed(1));
-  document.getElementById('inst-elec').textContent = inst == null ? '—' : inst;
+  // Regen-now footer: distinct from the gauge readout. Shows the
+  // numeric value the car is currently regen'ing OR discharging. A
+  // parked car with regen_power=0 is a real reading, not absence.
+  // When the signal isn't reported at all (truly null) we still call
+  // that out as "n/a" — matches lifetime card semantics.
+  const regenEl = document.getElementById('regen-now');
+  if (regen == null) {
+    regenEl.textContent = 'n/a';
+  } else if (regen > 0) {
+    regenEl.textContent = `+${regen.toFixed(1)}`;
+  } else {
+    regenEl.textContent = regen.toFixed(1);
+  }
+  document.getElementById('inst-elec').textContent =
+    inst == null ? 'n/a' : inst;
 }
 
 /**
@@ -529,7 +564,22 @@ function paintCharging() {
   const dot = badge.querySelector('.dot');
   if (dot) dot.remove();
 
-  document.getElementById('chg-power').textContent = power == null ? '—' : power;
+  // Charge power: during PREPARING handshake no current flows yet, so
+  // chg_power is genuinely 0 — the BMS just doesn't push the zero.
+  // Showing `—` is misleading; show explicit 0 with a hint. Same
+  // applies to chg_current below.
+  const powerEl = document.getElementById('chg-power');
+  if (power != null) {
+    powerEl.textContent = power;
+  } else if (stateLabel.id === 'preparing' || stateLabel.id === 'plugged-idle') {
+    powerEl.textContent = '0';
+  } else if (volt != null && curr != null) {
+    // Compute kW from live V × A when the dedicated chg_power signal
+    // doesn't push (some Leopard 8 firmwares omit it).
+    powerEl.textContent = ((volt * curr) / 1000).toFixed(1);
+  } else {
+    powerEl.textContent = '—';
+  }
   document.getElementById('chg-target').textContent = target == null ? '—' : target;
 
   // ETA — only meaningful while CHARGING. The BMS reports 0xFF (255)
@@ -549,18 +599,24 @@ function paintCharging() {
     etaEl.textContent = `${etaH ?? 0}h ${String(etaM ?? 0).padStart(2, '0')}m`;
   }
 
-  // Voltage · Current — empty during PREPARING (handshake not yet
-  // exchanging current). Show an explicit waiting state instead of
-  // the raw "— V · — A" so users know it's not a bug.
+  // Voltage · Current — during PREPARING the bus voltage is live but
+  // current is 0 (handshake hasn't authorised current flow yet). Show
+  // explicit 0 A in that case rather than `—`, which would suggest
+  // missing data when really the value IS zero.
   const viEl = document.getElementById('chg-vi');
-  if (volt == null && curr == null) {
-    viEl.textContent = stateLabel.id === 'preparing'
-      ? 'waiting for handshake'
-      : (stateLabel.id === 'unplugged' || stateLabel.id === 'plugged-idle'
-        ? 'no power flow'
-        : '— V · — A');
+  const isPreparing = stateLabel.id === 'preparing';
+  const isPluggedIdle = stateLabel.id === 'plugged-idle';
+  const isUnplugged = stateLabel.id === 'unplugged';
+  const vStr = volt != null ? `${volt} V` : (isUnplugged ? '— V' : '—');
+  const aStr = curr != null
+    ? `${curr} A`
+    : ((isPreparing || isPluggedIdle) ? '0 A' : (isUnplugged ? '— A' : '—'));
+  if (volt == null && curr == null && (isPreparing || isPluggedIdle)) {
+    viEl.textContent = isPreparing ? 'waiting for handshake' : 'no power flow';
+  } else if (volt == null && curr == null) {
+    viEl.textContent = '— V · — A';
   } else {
-    viEl.textContent = `${volt ?? '—'} V · ${curr ?? '—'} A`;
+    viEl.textContent = `${vStr} · ${aStr}`;
   }
 
   // Capability hints — AC vs DC port support.
@@ -638,19 +694,18 @@ function describeChargeState({ work, connect, fault }) {
 
 function paintLifetime() {
   // Lifetime aggregates live in the Statistic.* namespace. Some BMS
-  // firmwares (DiLink 5.1 / Leopard 8) don't push these values until
-  // the very first ignition cycle after a service reset — so on a
-  // freshly-flashed car the signal stays null for a while. Render
-  // `—` in that case rather than 0, which would be misleading.
-  //
-  // Instant consumption is the same shape — kWh/100km. We scale it
-  // through scaleToKw because some ROMs report milli-units (× 10).
+  // firmwares (DiLink 5.1 / Leopard 8) don't push these values at all
+  // — they're either gated behind a service-mode reset or genuinely
+  // not exposed. Render "n/a" (rather than `—`, which suggests
+  // missing-but-coming-soon) when the signal stays null for a
+  // few seconds after boot — the auto-warmup phase will have either
+  // populated it or proven it's a hard gap.
   const elec = state.stat_total_elec_kwh;
   const fuel = state.stat_total_fuel_l;
   document.getElementById('life-elec').textContent =
-    elec == null ? '—' : Number(elec).toLocaleString();
+    elec == null ? 'n/a' : Number(elec).toLocaleString();
   document.getElementById('life-fuel').textContent =
-    fuel == null ? '—' : Number(fuel).toLocaleString();
+    fuel == null ? 'n/a' : Number(fuel).toLocaleString();
 }
 
 function paintHeaderFreshness() {
