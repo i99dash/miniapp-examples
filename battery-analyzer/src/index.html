@@ -166,48 +166,90 @@
       .stat .value .u { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
       .stat .hint { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
 
-      /* Cell balance visualisation */
+      /* Cell + thermal balance visualisation.
+         Layout (top to bottom inside the chart):
+           - labels row     (min value · avg value · max value, positioned proportionally on the X axis)
+           - marker row     (tick marks for min/avg/max)
+           - axis row       (the horizontal line they sit on)
+           - healthy band   (a translucent green region under the axis showing the "good" spread,
+                             so a tight 3 mV pack looks visually different from a loose 50 mV pack) */
       .balance-chart {
         position: relative;
-        height: 80px;
+        height: 84px;
         background: var(--bg-card);
         border: 1px solid var(--line);
         border-radius: 12px;
-        padding: 14px;
+        padding: 16px 18px 14px;
+        overflow: hidden;
       }
       .balance-chart .axis {
         position: absolute;
-        left: 14px;
-        right: 14px;
-        bottom: 14px;
+        left: 18px;
+        right: 18px;
+        bottom: 22px;
         height: 2px;
         background: var(--line);
       }
-      .balance-chart .min, .balance-chart .max, .balance-chart .avg {
+      /* Healthy-zone band — sits behind the axis, width = healthy-spread / total-axis-range.
+         Centred on `avg`. Lit green; warning/bad zones fade to amber/red on
+         either side via the JS painter. */
+      .balance-chart .healthy {
         position: absolute;
-        bottom: 14px;
-        font-size: 11px;
-        font-variant-numeric: tabular-nums;
-        transform: translateX(-50%);
+        bottom: 22px;
+        height: 4px;
+        background: var(--good);
+        opacity: 0.18;
+        transform: translateY(1px);
+        transition: left 200ms ease-out, right 200ms ease-out;
       }
-      .balance-chart .min { color: var(--accent); }
-      .balance-chart .max { color: var(--warn); }
-      .balance-chart .avg { color: var(--text); font-weight: 600; }
+      /* The actual spread fill — coloured edge-to-edge from min to max. */
+      .balance-chart .fill {
+        position: absolute;
+        bottom: 22px;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent), var(--text), var(--warn));
+        transform: translateY(1px);
+        border-radius: 2px;
+        transition: left 200ms ease-out, right 200ms ease-out;
+      }
       .balance-chart .marker {
         position: absolute;
-        bottom: 12px;
+        bottom: 20px;
         width: 2px;
         height: 16px;
         background: currentColor;
+        transform: translateX(-1px);
+        transition: left 200ms ease-out;
       }
+      .balance-chart .min-marker { color: var(--accent); }
+      .balance-chart .max-marker { color: var(--warn); }
+      .balance-chart .avg-marker { color: var(--text); width: 3px; transform: translateX(-1.5px); }
       .balance-chart .label {
         position: absolute;
-        bottom: 30px;
-        font-size: 10px;
+        bottom: 42px;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
         color: var(--muted);
         transform: translateX(-50%);
         white-space: nowrap;
+        transition: left 200ms ease-out;
       }
+      .balance-chart .label.min-label { color: var(--accent); }
+      .balance-chart .label.max-label { color: var(--warn); }
+      .balance-chart .label.avg-label { color: var(--text); font-weight: 600; }
+      /* Axis-end labels. Anchored to the inside edges of the chart so
+         they don't get clipped by overflow:hidden when the text is
+         wider than the marker point (e.g. "3312.5" — 6 chars). */
+      .balance-chart .axis-label {
+        position: absolute;
+        bottom: 4px;
+        font-size: 9px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .balance-chart .axis-label.lo { left: 6px; }
+      .balance-chart .axis-label.hi { right: 6px; }
 
       /* Power flow gauge */
       .power-flow {
@@ -384,14 +426,18 @@
           <div class="title">Cell &amp; Thermal Balance</div>
           <div class="stat">
             <div class="label">Cell voltage spread (max − min)</div>
-            <div class="balance-chart">
+            <div class="balance-chart" id="v-chart">
+              <div class="healthy" id="v-healthy"></div>
+              <div class="fill" id="v-fill"></div>
               <div class="axis"></div>
-              <div class="label" id="vmin-label" style="left: 8%">min —</div>
-              <div class="marker" id="vmin-marker" style="left: 8%; color: var(--accent)"></div>
-              <div class="label" id="vavg-label" style="left: 50%">avg</div>
-              <div class="marker" id="vavg-marker" style="left: 50%; color: var(--text)"></div>
-              <div class="label" id="vmax-label" style="left: 92%">max —</div>
-              <div class="marker" id="vmax-marker" style="left: 92%; color: var(--warn)"></div>
+              <div class="marker min-marker" id="vmin-marker"></div>
+              <div class="marker avg-marker" id="vavg-marker"></div>
+              <div class="marker max-marker" id="vmax-marker"></div>
+              <div class="label min-label" id="vmin-label">—</div>
+              <div class="label avg-label" id="vavg-label">avg</div>
+              <div class="label max-label" id="vmax-label">—</div>
+              <div class="axis-label lo" id="v-axis-low">−</div>
+              <div class="axis-label hi" id="v-axis-high">+</div>
             </div>
             <div class="hint" style="margin-top: 6px">
               Healthy packs sit under <b>30 mV</b> spread. Δ <span id="v-delta-text">—</span> mV.
@@ -399,14 +445,18 @@
           </div>
           <div class="stat">
             <div class="label">Cell temperature</div>
-            <div class="balance-chart">
+            <div class="balance-chart" id="t-chart">
+              <div class="healthy" id="t-healthy"></div>
+              <div class="fill" id="t-fill"></div>
               <div class="axis"></div>
-              <div class="label" id="tmin-label" style="left: 8%">min —</div>
-              <div class="marker" id="tmin-marker" style="left: 8%; color: var(--accent)"></div>
-              <div class="label" id="tavg-label" style="left: 50%">avg</div>
-              <div class="marker" id="tavg-marker" style="left: 50%; color: var(--text)"></div>
-              <div class="label" id="tmax-label" style="left: 92%">max —</div>
-              <div class="marker" id="tmax-marker" style="left: 92%; color: var(--warn)"></div>
+              <div class="marker min-marker" id="tmin-marker"></div>
+              <div class="marker avg-marker" id="tavg-marker"></div>
+              <div class="marker max-marker" id="tmax-marker"></div>
+              <div class="label min-label" id="tmin-label">—</div>
+              <div class="label avg-label" id="tavg-label">avg</div>
+              <div class="label max-label" id="tmax-label">—</div>
+              <div class="axis-label lo" id="t-axis-low">−</div>
+              <div class="axis-label hi" id="t-axis-high">+</div>
             </div>
             <div class="hint" style="margin-top: 6px">
               Spread &gt; <b>5 °C</b> means uneven cooling. Δ <span id="t-delta-text">—</span> °C.
