@@ -10,7 +10,7 @@
   },
   "icon": "./icon.svg",
   "url": "https://miniapps.i99dash.app/gauge-builder/",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "minHostVersion": "2.0.0",
   "category": "vehicle",
   "safeWhileDriving": false

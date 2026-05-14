@@ -19,8 +19,15 @@ const state = {
 };
 
 function readLayoutFromHash() {
+  // Prefer the query string (host's surface.create regex rejects bare
+  // `#fragment` URLs — they only pass when nested inside a query). Fall
+  // back to the legacy hash so an older bundle launched before the
+  // editor restart still renders.
+  const search = location.search.startsWith('?')
+    ? location.search.slice(1)
+    : location.search;
   const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
-  const params = new URLSearchParams(hash);
+  const params = new URLSearchParams(search || hash);
   const enc = params.get('layout');
   if (!enc) return null;
   try {

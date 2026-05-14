@@ -524,7 +524,7 @@ async function push() {
     );
     const r = await callNative('surface.create', {
       displayId: state.driverTargetId,
-      route: `/cluster.html#layout=${payload}`,
+      route: `/cluster.html?layout=${payload}`,
     });
     state.surfaceId = r?.surfaceId ?? null;
     const targetLabel =
