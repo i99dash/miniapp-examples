@@ -10,7 +10,7 @@
   },
   "icon": "./icon.svg",
   "url": "https://miniapps.i99dash.app/bridge-doctor/",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "minHostVersion": "2.0.0",
   "category": "developer",
   "safeWhileDriving": false

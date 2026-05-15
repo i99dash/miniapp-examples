@@ -1,0 +1,28 @@
+{
+  "id": "weather-ahead",
+  "name": {
+    "en": "Weather Ahead",
+    "ar": "الطقس على الطريق"
+  },
+  "description": {
+    "en": "See the weather along your route, not just where you are now. Shows conditions at 30, 60, and 90 minutes ahead based on your live location — so you know before you drive into rain, fog, or a temperature drop. Rain arrival time, precipitation intensity, fog likelihood, and UV index are all surfaced at a glance. Powered by Open-Meteo (free, no account required), with automatic refresh as your route progresses.",
+    "ar": "اطّلع على طقس طريقك القادم، وليس فقط موقعك الحالي. يعرض الأحوال الجوية بعد 30 و60 و90 دقيقة من موقعك المباشر، حتى تعرف مسبقاً ما إذا كنت ستدخل في مطر أو ضباب أو انخفاض حاد في الحرارة. يُظهر وقت وصول الأمطار وشدتها واحتمال الضباب ومؤشر الأشعة فوق البنفسجية دفعة واحدة. مدعوم من Open-Meteo (مجاني، لا حساب مطلوب)، مع تحديث تلقائي أثناء تقدّمك في الطريق."
+  },
+  "icon": "./assets/icon.svg",
+  "coverImage": "./assets/cover.png",
+  "url": "https://miniapps.i99dash.app/weather-ahead/",
+  "version": "0.6.0",
+  "minHostVersion": "0.0.2",
+  "category": "navigation",
+  "tags": [
+    "weather",
+    "route",
+    "forecast",
+    "rain",
+    "fog"
+  ],
+  "safeWhileDriving": true,
+  "permissions": [
+    "location.read"
+  ]
+}

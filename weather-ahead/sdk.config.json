@@ -1,0 +1,9 @@
+{
+  "appRoot": "./src",
+  "distDir": "./dist",
+  "mocksDir": "./mocks",
+  "dev": {
+    "port": 5184,
+    "host": "127.0.0.1"
+  }
+}

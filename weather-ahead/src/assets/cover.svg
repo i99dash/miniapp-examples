@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img"
+     aria-label="Weather Ahead — route weather at 30, 60, 90 min ahead"
+     preserveAspectRatio="xMidYMid slice">
+  <!-- Hero / cover image for catalog listing. 16:9 to fit both the
+       head-unit Store carousel (1280×720) and the website grid.
+       Composition:
+         * Gradient sky: clear blue upper half → warm orange/amber lower
+           (suggests approaching weather change — the app's value prop)
+         * Three floating forecast cards at T+30 / T+60 / T+90 arranged
+           in a road-perspective fan (closer = left, further = right)
+         * Road vanishing toward the horizon centre (navigation context)
+         * Rain streaks on the right third (the "ahead" zone)
+         * Type lock-up lower-left -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0"   stop-color="#0d47a1"/>
+      <stop offset="0.4" stop-color="#1976d2"/>
+      <stop offset="0.7" stop-color="#e65100"/>
+      <stop offset="1"   stop-color="#ff8f00"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1a2e"/>
+      <stop offset="1" stop-color="#2d2d44"/>
+    </linearGradient>
+    <linearGradient id="card-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.06"/>
+    </linearGradient>
+    <linearGradient id="rain-fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#90caf9" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#90caf9" stop-opacity="0.1"/>
+    </linearGradient>
+    <filter id="card-blur">
+      <feGaussianBlur stdDeviation="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Sky background -->
+  <rect width="1280" height="720" fill="url(#sky)"/>
+
+  <!-- Road perspective — two converging lines to a vanishing point at
+       (800, 380), with an asphalt fill between them. -->
+  <polygon points="0,720 500,380 1280,380 1280,720" fill="#1a1f2e" opacity="0.75"/>
+  <!-- Lane markings -->
+  <g stroke="#ffffff" stroke-width="4" stroke-dasharray="40 30" opacity="0.25">
+    <line x1="500" y1="380" x2="0" y2="720"/>
+    <line x1="800" y1="380" x2="640" y2="720"/>
+    <line x1="1280" y1="380" x2="1280" y2="720"/>
+  </g>
+  <!-- Road centre line -->
+  <line x1="600" y1="380" x2="320" y2="720" stroke="#f9a825" stroke-width="3"
+        stroke-dasharray="50 35" opacity="0.6"/>
+
+  <!-- Rain streaks in the right portion — suggests "rain ahead" -->
+  <g stroke="url(#rain-fade)" stroke-width="1.5" opacity="0.7">
+    <line x1="880" y1="300" x2="860" y2="500"/>
+    <line x1="910" y1="280" x2="888" y2="490"/>
+    <line x1="940" y1="300" x2="918" y2="510"/>
+    <line x1="968" y1="290" x2="946" y2="495"/>
+    <line x1="995" y1="310" x2="973" y2="510"/>
+    <line x1="1020" y1="285" x2="998" y2="490"/>
+    <line x1="1050" y1="300" x2="1028" y2="505"/>
+    <line x1="1075" y1="295" x2="1053" y2="500"/>
+    <line x1="1100" y1="275" x2="1078" y2="480"/>
+    <line x1="1130" y1="290" x2="1108" y2="498"/>
+    <line x1="1155" y1="300" x2="1133" y2="505"/>
+    <line x1="1180" y1="280" x2="1158" y2="488"/>
+    <line x1="1210" y1="295" x2="1188" y2="500"/>
+    <line x1="1240" y1="310" x2="1218" y2="515"/>
+    <!-- slightly denser rain cluster -->
+    <line x1="895" y1="320" x2="875" y2="508"/>
+    <line x1="925" y1="305" x2="903" y2="510"/>
+    <line x1="955" y1="315" x2="933" y2="520"/>
+    <line x1="985" y1="300" x2="963" y2="506"/>
+    <line x1="1010" y1="320" x2="990" y2="515"/>
+    <line x1="1040" y1="295" x2="1018" y2="500"/>
+  </g>
+
+  <!-- Three forecast cards floating above the road horizon
+       T+30 card (left, nearest) -->
+  <g transform="translate(120 220)">
+    <rect width="220" height="130" rx="16" fill="url(#card-bg)" stroke="#ffffff"
+          stroke-opacity="0.35" stroke-width="1.5"/>
+    <!-- Card header: T+30 label -->
+    <text x="16" y="30" fill="#ffffff" opacity="0.7" font-family="system-ui, sans-serif"
+          font-size="15" font-weight="700" letter-spacing="0.06em">T + 30 MIN</text>
+    <!-- Condition emoji placeholder — sun with cloud -->
+    <text x="16" y="80" font-size="44">🌤️</text>
+    <!-- Temp + delta -->
+    <text x="80" y="65" fill="#ffffff" font-family="system-ui, sans-serif"
+          font-size="26" font-weight="800">22°</text>
+    <text x="80" y="90" fill="#fdd835" font-family="system-ui, sans-serif"
+          font-size="16" font-weight="600">(−2°)</text>
+    <!-- Summary -->
+    <text x="16" y="118" fill="#ffffff" opacity="0.8" font-family="system-ui, sans-serif"
+          font-size="13">Partly cloudy</text>
+  </g>
+
+  <!-- T+60 card (centre) -->
+  <g transform="translate(400 170)">
+    <rect width="220" height="130" rx="16" fill="url(#card-bg)" stroke="#ffffff"
+          stroke-opacity="0.35" stroke-width="1.5"/>
+    <text x="16" y="30" fill="#ffffff" opacity="0.7" font-family="system-ui, sans-serif"
+          font-size="15" font-weight="700" letter-spacing="0.06em">T + 60 MIN</text>
+    <text x="16" y="80" font-size="44">🌧️</text>
+    <text x="80" y="65" fill="#ffffff" font-family="system-ui, sans-serif"
+          font-size="26" font-weight="800">18°</text>
+    <text x="80" y="90" fill="#64b5f6" font-family="system-ui, sans-serif"
+          font-size="16" font-weight="600">(−6°)</text>
+    <text x="16" y="118" fill="#ffffff" opacity="0.8" font-family="system-ui, sans-serif"
+          font-size="13">Light rain expected</text>
+  </g>
+
+  <!-- T+90 card (right, furthest) -->
+  <g transform="translate(680 195)">
+    <rect width="220" height="130" rx="16" fill="url(#card-bg)" stroke="#ffffff"
+          stroke-opacity="0.35" stroke-width="1.5"/>
+    <text x="16" y="30" fill="#ffffff" opacity="0.7" font-family="system-ui, sans-serif"
+          font-size="15" font-weight="700" letter-spacing="0.06em">T + 90 MIN</text>
+    <text x="16" y="80" font-size="44">🌧️</text>
+    <text x="80" y="65" fill="#ffffff" font-family="system-ui, sans-serif"
+          font-size="26" font-weight="800">16°</text>
+    <text x="80" y="90" fill="#64b5f6" font-family="system-ui, sans-serif"
+          font-size="16" font-weight="600">(−8°)</text>
+    <text x="16" y="118" fill="#ffffff" opacity="0.8" font-family="system-ui, sans-serif"
+          font-size="13">Moderate rain</text>
+  </g>
+
+  <!-- Precipitation bar chart teaser — mini version lower right -->
+  <g transform="translate(950 430)" opacity="0.85">
+    <rect width="280" height="120" rx="14" fill="#000000" fill-opacity="0.3"
+          stroke="#ffffff" stroke-opacity="0.2" stroke-width="1"/>
+    <text x="14" y="22" fill="#ffffff" opacity="0.7" font-family="system-ui, sans-serif"
+          font-size="12" font-weight="700" letter-spacing="0.05em">PRECIPITATION NEXT 6H</text>
+    <!-- Bars: mm/h values [0, 0, 0.5, 2.0, 3.5, 2.8] -->
+    <g fill="#64b5f6">
+      <rect x="14"  y="100" width="28" height="0"  rx="2" transform="scale(1,-1) translate(0,-118)"/>
+      <rect x="54"  y="118" width="28" height="5"  rx="2" transform="scale(1,-1) translate(0,-118)"/>
+      <rect x="94"  y="118" width="28" height="20" rx="2" transform="scale(1,-1) translate(0,-118)"/>
+      <rect x="134" y="118" width="28" height="55" rx="2" transform="scale(1,-1) translate(0,-118)"/>
+      <rect x="174" y="118" width="28" height="65" rx="2" transform="scale(1,-1) translate(0,-118)"/>
+      <rect x="214" y="118" width="28" height="50" rx="2" transform="scale(1,-1) translate(0,-118)"/>
+    </g>
+    <!-- Hour labels -->
+    <g fill="#ffffff" opacity="0.6" font-family="system-ui, sans-serif" font-size="10"
+       text-anchor="middle">
+      <text x="28"  y="112">now</text>
+      <text x="68"  y="112">+1h</text>
+      <text x="108" y="112">+2h</text>
+      <text x="148" y="112">+3h</text>
+      <text x="188" y="112">+4h</text>
+      <text x="228" y="112">+5h</text>
+    </g>
+  </g>
+
+  <!-- Type lock-up lower-left -->
+  <g font-family="-apple-system, system-ui, 'Segoe UI', sans-serif">
+    <!-- Gold accent bar -->
+    <rect x="80" y="530" width="64" height="4" fill="#f9a825" rx="2"/>
+
+    <text x="80" y="592" fill="#ffffff" font-size="64" font-weight="800"
+          letter-spacing="-0.01em">Weather Ahead</text>
+    <text x="80" y="642" fill="#ffd54f" font-size="36" font-weight="600"
+          opacity="0.95" direction="rtl" text-anchor="start" xml:space="preserve">الطقس على الطريق</text>
+    <text x="80" y="688" fill="#ffffff" font-size="22" font-weight="500" opacity="0.85">
+      Route weather at 30 · 60 · 90 min ahead · Open-Meteo
+    </text>
+  </g>
+</svg>

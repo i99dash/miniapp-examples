@@ -1,0 +1,20 @@
+{
+  "name": "weather-ahead",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bundle": "./node_modules/esbuild/bin/esbuild src/main.js --bundle --format=iife --target=es2019 --outfile=src/app.bundle.js",
+    "dev": "pnpm bundle && i99dash dev",
+    "validate": "i99dash validate",
+    "build": "pnpm bundle && i99dash build",
+    "publish": "pnpm bundle && i99dash publish"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "sharp-cli": "^4.1.1"
+  },
+  "dependencies": {
+    "i99dash": "file:/tmp/sdk-pack/i99dash-2.0.0.tgz"
+  }
+}

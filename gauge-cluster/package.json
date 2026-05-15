@@ -5,12 +5,17 @@
   "description": "Full instrument-cluster mini-app — analog speedometer + tachometer, battery + range + climate readouts, doors + TPMS panel. Drinks live signals from `client.car.subscribe` on bridge v2.",
   "type": "module",
   "scripts": {
-    "dev": "i99dash dev",
+    "bundle": "esbuild src/app.js --bundle --format=iife --target=es2019 --outfile=src/app.bundle.js",
+    "dev": "pnpm bundle && i99dash dev",
     "validate": "i99dash validate",
-    "build": "i99dash build",
-    "publish": "i99dash publish"
+    "build": "pnpm bundle && i99dash build",
+    "publish": "pnpm bundle && i99dash publish"
   },
   "devDependencies": {
+    "esbuild": "^0.28.0",
     "i99dash": "^5.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "keytar"]
   }
 }

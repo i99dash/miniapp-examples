@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Weather Ahead">
+  <!-- Cloud-with-forward-arrow: the cloud anchors "weather", the
+       rightward arrow anchors "ahead on your route". Designed to read
+       at every catalog size — chip-rail tile (24px) through launcher
+       (96px) and store hero (1024px). Blue-sky gradient with a white
+       cloud and a gold arrow for warmth and legibility on both light
+       and dark host backgrounds.
+
+       Construction notes:
+        * 64×64 viewBox, 14px corner radius matching head-unit launcher
+          rounding conventions.
+        * Background: deep sky-blue gradient (darker at top, lighter
+          toward horizon). Reads as "weather / sky" at a glance.
+        * Cloud: white filled path, slightly raised on the right where
+          the arrow tip exits, so cloud and arrow read as one glyph.
+        * Arrow: gold (#e9b94a), thick enough to see at 24px, pointing
+          right. Same gold used across i99dash catalog for motion/nav
+          cues. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1565c0"/>
+      <stop offset="1" stop-color="#42a5f5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tile background -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+
+  <!-- Cloud body — two overlapping circles for the bumps + a rectangle
+       for the flat base. Placed in the upper half so the arrow has
+       room to point rightward out from the bottom-right of the cloud. -->
+  <g fill="#ffffff">
+    <!-- Main cloud shape -->
+    <path d="
+      M 14 38
+      a 10 10 0 0 1 0 -20
+      a 6  6  0 0 1 5 -4
+      a 9  9  0 0 1 18 2
+      a 7  7  0 0 1 5 12
+      Z
+    "/>
+  </g>
+
+  <!-- Arrow: a thick rightward chevron, gold, exiting the cloud base
+       toward the right. Acts as the "ahead" cue. -->
+  <g fill="#e9b94a">
+    <!-- Shaft -->
+    <rect x="18" y="41" width="22" height="5" rx="2.5"/>
+    <!-- Arrowhead -->
+    <path d="M 38 37 L 50 43.5 L 38 50 Z"/>
+  </g>
+</svg>
