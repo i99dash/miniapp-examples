@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none">
+  <defs>
+    <radialGradient id="cg" cx="50%" cy="50%" r="55%">
+      <stop offset="0" stop-color="#1a0a3a" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0.5"/>
+    </radialGradient>
+    <pattern id="grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 L0 0 0 40" fill="none" stroke="#f472b6" stroke-width="0.6" opacity="0.45"/>
+    </pattern>
+  </defs>
+  <rect width="600" height="600" fill="url(#cg)"/>
+  <!-- Floor grid skewed for perspective -->
+  <g transform="translate(0 360) skewX(-30)">
+    <rect x="-200" y="0" width="900" height="500" fill="url(#grid)"/>
+  </g>
+  <!-- Neon horizon glow -->
+  <ellipse cx="300" cy="360" rx="280" ry="6" fill="#f472b6" opacity="0.6"/>
+  <ellipse cx="300" cy="360" rx="320" ry="3" fill="#22d3ee" opacity="0.5"/>
+  <!-- Sun disc -->
+  <circle cx="300" cy="240" r="100" fill="#f472b6" opacity="0.18"/>
+  <circle cx="300" cy="240" r="70" fill="#f472b6" opacity="0.28"/>
+  <!-- Scan stripes -->
+  <line x1="200" y1="240" x2="400" y2="240" stroke="#020617" stroke-width="6"/>
+  <line x1="220" y1="260" x2="380" y2="260" stroke="#020617" stroke-width="4"/>
+  <line x1="240" y1="280" x2="360" y2="280" stroke="#020617" stroke-width="3"/>
+</svg>

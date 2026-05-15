@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="40%" r="60%">
+      <stop offset="0" stop-color="#1e3a8a" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#020617" stop-opacity="0.4"/>
+    </radialGradient>
+    <linearGradient id="road" x1="50%" y1="60%" x2="50%" y2="100%">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="360" fill="url(#sky)"/>
+  <rect y="360" width="600" height="240" fill="url(#road)"/>
+  <!-- Horizon line -->
+  <line x1="0" y1="360" x2="600" y2="360" stroke="#22d3ee" stroke-width="2" opacity="0.45"/>
+  <!-- Centre lane stripe converging -->
+  <path d="M300 360 L260 600 L340 600 Z" fill="#22d3ee" opacity="0.18"/>
+  <!-- Side guides -->
+  <path d="M150 360 L60 600" stroke="#22d3ee" stroke-width="1.5" opacity="0.22"/>
+  <path d="M450 360 L540 600" stroke="#22d3ee" stroke-width="1.5" opacity="0.22"/>
+  <!-- Dashed centre line -->
+  <line x1="300" y1="380" x2="300" y2="410" stroke="#e2e8f0" stroke-width="3" opacity="0.6"/>
+  <line x1="300" y1="440" x2="300" y2="490" stroke="#e2e8f0" stroke-width="4" opacity="0.55"/>
+  <line x1="300" y1="530" x2="300" y2="600" stroke="#e2e8f0" stroke-width="5" opacity="0.5"/>
+  <!-- Distant city glow -->
+  <ellipse cx="300" cy="360" rx="180" ry="14" fill="#0ea5e9" opacity="0.35"/>
+</svg>

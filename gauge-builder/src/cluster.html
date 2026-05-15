@@ -7,75 +7,148 @@
     <style>
       :root {
         color-scheme: dark;
+        --gauge-font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      body[data-theme='stealth'] {
         --bg: #06080d;
+        --bg-image: radial-gradient(circle at 50% 0%, #0d1726 0%, transparent 60%);
+        --gauge-panel: #0f1421;
+        --bg-card: rgba(22, 27, 44, 0.85);
+        --line: #1f2a44;
+        --gauge-text: #e6e9ef;
+        --gauge-muted: #6c7a93;
+        --gauge-track: #1f2a44;
+      }
+      body[data-theme='neon'] {
+        --bg: #0a0518;
+        --bg-image: radial-gradient(circle at 50% 0%, #2d0a4a 0%, transparent 60%);
+        --gauge-panel: #150925;
+        --bg-card: rgba(31, 13, 54, 0.85);
+        --line: #4a2370;
+        --gauge-text: #f4e6ff;
+        --gauge-muted: #9d7bbf;
+        --gauge-track: #2a1248;
+      }
+      body[data-theme='race'] {
+        --bg: #0a0606;
+        --bg-image: radial-gradient(circle at 50% 0%, #2a0d0d 0%, transparent 60%);
+        --gauge-panel: #1a0d0d;
+        --bg-card: rgba(42, 19, 19, 0.85);
+        --line: #4a1e1e;
+        --gauge-text: #fef3c7;
+        --gauge-muted: #b89060;
+        --gauge-track: #3a1818;
+      }
+      body[data-theme='glass'] {
+        --bg: #1e293b;
+        --bg-image: radial-gradient(circle at 20% 20%, #334155 0%, transparent 55%),
+                    radial-gradient(circle at 80% 80%, #475569 0%, transparent 55%),
+                    linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        --gauge-panel: rgba(15, 23, 42, 0.55);
+        --bg-card: rgba(30, 41, 59, 0.65);
+        --line: rgba(148, 163, 184, 0.2);
+        --gauge-text: #f1f5f9;
+        --gauge-muted: #94a3b8;
+        --gauge-track: rgba(100, 116, 139, 0.35);
+      }
+      body[data-theme='classic'] {
+        --bg: #050505;
+        --bg-image: linear-gradient(180deg, #0a0805 0%, #050302 100%);
+        --gauge-panel: #0a0805;
+        --bg-card: rgba(26, 18, 8, 0.85);
+        --line: #2d2010;
+        --gauge-text: #fde68a;
+        --gauge-muted: #92651a;
+        --gauge-track: #1f1608;
       }
       html, body {
         margin: 0;
         height: 100%;
-        background:
-          radial-gradient(circle at 50% 0%, #0d1726 0%, transparent 60%),
-          var(--bg);
-        color: #e6e9ef;
-        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        background: var(--bg-image), var(--bg);
+        color: var(--gauge-text);
+        font-family: var(--gauge-font);
         overflow: hidden;
         font-feature-settings: 'tnum';
       }
-      #cluster {
-        height: 100%;
-        display: grid;
-        grid-template-columns: 1fr 1.3fr 1fr;
-        gap: 18px;
-        padding: 24px;
-      }
-      .slot {
+      .stage {
         position: relative;
+        height: 100vh;
       }
-      .slot canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-      }
-      .slot .empty {
+      .slot { position: absolute; }
+      .slot canvas { display: block; width: 100%; height: 100%; position: relative; z-index: 1; }
+      .slot-hero { inset: 0; }
+      /* Hero background well — circular, feathered. Sized to the
+         cluster's native 1920×720 aspect: use vh so the circle
+         tracks the hero gauge centre rather than the screen edge. */
+      .hero-bg-wrap {
         position: absolute;
         inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 14px;
-        color: #6c7a93;
-        border: 1px dashed #1f2a44;
-        border-radius: 18px;
+        pointer-events: none;
+        z-index: 0;
       }
+      .hero-bg-wrap > * {
+        width: min(56%, 60vh);
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        border-radius: 50%;
+        -webkit-mask-image: radial-gradient(circle, #000 52%, transparent 86%);
+                mask-image: radial-gradient(circle, #000 52%, transparent 86%);
+        opacity: 0.72;
+        box-shadow: inset 0 0 80px 40px color-mix(in srgb, var(--bg) 60%, transparent);
+      }
+      .slot-overlay {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        backdrop-filter: blur(8px);
+      }
+      .slot-overlay[data-size='S'] { width: 22%; height: 30%; }
+      .slot-overlay[data-size='M'] { width: 28%; height: 38%; }
+      .slot-overlay[data-size='L'] { width: 36%; height: 48%; }
+      .slot-overlay[data-pos='tl'] { top: 3%;    left: 2%;  bottom: auto; right: auto; }
+      .slot-overlay[data-pos='tr'] { top: 3%;    right: 2%; bottom: auto; left: auto; }
+      .slot-overlay[data-pos='bl'] { bottom: 3%; left: 2%;  top: auto;    right: auto; }
+      .slot-overlay[data-pos='br'] { bottom: 3%; right: 2%; top: auto;    left: auto; }
+      .slot .empty {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--gauge-muted);
+        font-size: 14px;
+      }
+
       .pill {
         position: fixed;
-        top: 14px;
-        left: 14px;
-        background: rgba(15, 20, 33, 0.7);
-        backdrop-filter: blur(6px);
-        border: 1px solid #1f2a44;
+        top: 14px; left: 14px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
         padding: 4px 10px;
         border-radius: 999px;
         font-size: 11px;
-        color: #6c7a93;
-        display: inline-flex;
-        gap: 6px;
-        align-items: center;
+        color: var(--gauge-muted);
+        display: inline-flex; gap: 6px; align-items: center;
       }
       .dot {
-        width: 7px; height: 7px; border-radius: 50%; background: #6c7a93;
+        width: 7px; height: 7px; border-radius: 50%; background: var(--gauge-muted);
       }
       .dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
       .dot.degraded { background: #f59e0b; }
       .dot.disconnected { background: #ef4444; }
     </style>
   </head>
-  <body>
+  <body data-theme="stealth">
     <span class="pill"><span class="dot" id="conn-dot"></span><span id="conn-text">cluster · connecting…</span></span>
-    <div id="cluster">
-      <div class="slot" data-slot="0"><canvas></canvas><div class="empty">—</div></div>
-      <div class="slot" data-slot="1"><canvas></canvas><div class="empty">—</div></div>
-      <div class="slot" data-slot="2"><canvas></canvas><div class="empty">—</div></div>
+    <div class="stage">
+      <div class="slot slot-hero" data-slot="1">
+        <div class="hero-bg-wrap" id="hero-bg"></div>
+        <canvas></canvas>
+        <div class="empty">—</div>
+      </div>
+      <div class="slot slot-overlay" data-slot="0" data-pos="bl" data-size="M"><canvas></canvas><div class="empty">—</div></div>
+      <div class="slot slot-overlay" data-slot="2" data-pos="br" data-size="M"><canvas></canvas><div class="empty">—</div></div>
     </div>
-    <script type="module" src="./cluster.js"></script>
+    <script src="./cluster.bundle.js"></script>
   </body>
 </html>

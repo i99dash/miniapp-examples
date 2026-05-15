@@ -3,459 +3,778 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>Gauge Builder</title>
+    <title>Gauge Builder ✨</title>
     <link rel="icon" href="./icon.svg" />
     <style>
       :root {
         color-scheme: dark;
-        --bg: #06080d;
-        --bg-panel: #0f1421;
-        --bg-card: #161b2c;
-        --line: #1f2a44;
-        --line-hot: #22d3ee;
-        --text: #e6e9ef;
-        --muted: #6c7a93;
-        --accent: #22d3ee;
-        --good: #22c55e;
-        --warn: #f59e0b;
-        --hot: #ef4444;
+        --gauge-font: 'SF Pro Display', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+        --r-xl: 22px; --r-lg: 16px; --r-md: 12px; --r-sm: 8px;
+        --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
       }
-      * { box-sizing: border-box; }
+      body[data-theme='stealth'] {
+        --bg: #06080d;
+        --bg-mesh:
+          radial-gradient(circle at 14% 8%, #1e3a8a55 0%, transparent 40%),
+          radial-gradient(circle at 88% 18%, #6d28d955 0%, transparent 45%),
+          radial-gradient(circle at 75% 90%, #0891b255 0%, transparent 45%);
+        --gauge-panel: rgba(20, 25, 42, 0.6);
+        --bg-card: rgba(38, 45, 70, 0.55);
+        --line: rgba(120, 140, 200, 0.18);
+        --line-hot: #22d3ee;
+        --gauge-text: #f1f5f9;
+        --gauge-muted: #94a3b8;
+        --gauge-track: rgba(100, 116, 139, 0.3);
+        --accent: #22d3ee; --accent-2: #818cf8;
+        --good: #22c55e; --warn: #f59e0b; --hot: #ef4444;
+      }
+      body[data-theme='neon'] {
+        --bg: #0a0518;
+        --bg-mesh:
+          radial-gradient(circle at 12% 12%, #ec489955 0%, transparent 40%),
+          radial-gradient(circle at 90% 30%, #a855f755 0%, transparent 45%),
+          radial-gradient(circle at 70% 92%, #06b6d455 0%, transparent 45%);
+        --gauge-panel: rgba(38, 16, 70, 0.6);
+        --bg-card: rgba(58, 26, 100, 0.55);
+        --line: rgba(244, 114, 182, 0.22);
+        --line-hot: #f472b6;
+        --gauge-text: #fce7f3; --gauge-muted: #c4b5fd;
+        --gauge-track: rgba(168, 85, 247, 0.35);
+        --accent: #f472b6; --accent-2: #67e8f9;
+        --good: #a3e635; --warn: #fb923c; --hot: #f43f5e;
+      }
+      body[data-theme='race'] {
+        --bg: #0a0606;
+        --bg-mesh:
+          radial-gradient(circle at 12% 8%, #dc262655 0%, transparent 40%),
+          radial-gradient(circle at 88% 22%, #f59e0b55 0%, transparent 40%),
+          radial-gradient(circle at 70% 88%, #0c0a0922 0%, transparent 35%);
+        --gauge-panel: rgba(42, 14, 14, 0.65);
+        --bg-card: rgba(64, 20, 20, 0.55);
+        --line: rgba(239, 68, 68, 0.22);
+        --line-hot: #ef4444;
+        --gauge-text: #fef3c7; --gauge-muted: #fcd9a8;
+        --gauge-track: rgba(180, 60, 60, 0.35);
+        --accent: #ef4444; --accent-2: #f59e0b;
+        --good: #84cc16; --warn: #f59e0b; --hot: #ef4444;
+      }
+      body[data-theme='glass'] {
+        --bg: #1e293b;
+        --bg-mesh:
+          radial-gradient(circle at 18% 18%, #475569aa 0%, transparent 45%),
+          radial-gradient(circle at 82% 78%, #38bdf855 0%, transparent 45%),
+          linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        --gauge-panel: rgba(15, 23, 42, 0.6);
+        --bg-card: rgba(30, 41, 59, 0.65);
+        --line: rgba(148, 163, 184, 0.2);
+        --line-hot: #67e8f9;
+        --gauge-text: #f1f5f9; --gauge-muted: #94a3b8;
+        --gauge-track: rgba(100, 116, 139, 0.35);
+        --accent: #67e8f9; --accent-2: #a5f3fc;
+        --good: #4ade80; --warn: #fbbf24; --hot: #f87171;
+      }
+      body[data-theme='classic'] {
+        --bg: #050505;
+        --bg-mesh:
+          radial-gradient(circle at 14% 10%, #fbbf2422 0%, transparent 45%),
+          radial-gradient(circle at 85% 85%, #3a2d1855 0%, transparent 45%);
+        --gauge-panel: rgba(26, 18, 8, 0.65);
+        --bg-card: rgba(45, 32, 16, 0.55);
+        --line: rgba(251, 191, 36, 0.18);
+        --line-hot: #fbbf24;
+        --gauge-text: #fde68a; --gauge-muted: #d4a14a;
+        --gauge-track: rgba(146, 101, 26, 0.4);
+        --accent: #fbbf24; --accent-2: #f59e0b;
+        --good: #84cc16; --warn: #fb923c; --hot: #ef4444;
+      }
+      body[data-theme='sunset'] {
+        --bg: #2d0e1a;
+        --bg-mesh:
+          radial-gradient(circle at 12% 14%, #f97316aa 0%, transparent 45%),
+          radial-gradient(circle at 88% 30%, #ec4899aa 0%, transparent 45%),
+          radial-gradient(circle at 60% 95%, #fbbf2488 0%, transparent 45%);
+        --gauge-panel: rgba(76, 26, 38, 0.6);
+        --bg-card: rgba(120, 40, 50, 0.55);
+        --line: rgba(251, 146, 60, 0.22);
+        --line-hot: #fb923c;
+        --gauge-text: #fff7ed; --gauge-muted: #fcd9a8;
+        --gauge-track: rgba(251, 146, 60, 0.3);
+        --accent: #fb923c; --accent-2: #ec4899;
+        --good: #a3e635; --warn: #fbbf24; --hot: #ef4444;
+      }
+      body[data-theme='y2k'] {
+        --bg: #1a0f2e;
+        --bg-mesh:
+          radial-gradient(circle at 14% 16%, #c084fcaa 0%, transparent 45%),
+          radial-gradient(circle at 84% 24%, #67e8f9aa 0%, transparent 45%),
+          radial-gradient(circle at 50% 92%, #f9a8d4aa 0%, transparent 45%);
+        --gauge-panel: rgba(48, 24, 88, 0.55);
+        --bg-card: rgba(80, 50, 130, 0.55);
+        --line: rgba(192, 132, 252, 0.25);
+        --line-hot: #c084fc;
+        --gauge-text: #f5f3ff; --gauge-muted: #ddd6fe;
+        --gauge-track: rgba(167, 139, 250, 0.35);
+        --accent: #c084fc; --accent-2: #67e8f9;
+        --good: #86efac; --warn: #fde047; --hot: #fb7185;
+      }
+
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body {
-        margin: 0;
-        height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        margin: 0; height: 100%;
+        background: var(--bg-mesh, none), var(--bg);
+        background-attachment: fixed;
+        color: var(--gauge-text);
+        font-family: var(--gauge-font);
         overflow: hidden;
         font-feature-settings: 'tnum';
       }
-      #app {
-        height: 100%;
-        display: grid;
-        grid-template-rows: auto 1fr auto auto;
-        gap: 14px;
-        padding: 18px;
+      body { display: flex; flex-direction: column; }
+
+      /* Drift blobs — kept, smaller. */
+      body::before, body::after {
+        content: '';
+        position: fixed;
+        width: 380px; height: 380px;
+        border-radius: 50%;
+        filter: blur(110px);
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.5;
       }
+      body::before { background: var(--accent);   top: -160px; left: -100px; animation: d1 22s ease-in-out infinite; }
+      body::after  { background: var(--accent-2); bottom: -160px; right: -100px; animation: d2 26s ease-in-out infinite; }
+      @keyframes d1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(60px,30px) scale(1.1)} }
+      @keyframes d2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-50px,-40px) scale(1.15)} }
+
+      header, main, .dock { position: relative; z-index: 1; }
+
+      /* ── Slim header ──────────────────────────────────────── */
       header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 13px;
-        color: var(--muted);
-        gap: 12px;
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 14px;
+        font-size: 12px; color: var(--gauge-muted); gap: 10px;
+        flex: 0 0 auto;
       }
-      header .left, header .right {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
+      header .left, header .right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
       header .brand {
-        color: var(--text);
-        font-weight: 600;
-        letter-spacing: 0.5px;
+        font-weight: 800; font-size: 14px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        letter-spacing: -0.2px;
       }
-      .badge {
+      header .brand::before { content: '✨ '; }
+      .pill {
         padding: 4px 10px;
         border-radius: 999px;
         background: var(--bg-card);
         border: 1px solid var(--line);
-        font-size: 12px;
-        display: inline-flex;
-        gap: 6px;
-        align-items: center;
+        font-size: 11px;
+        display: inline-flex; gap: 5px; align-items: center;
+        cursor: pointer;
+        backdrop-filter: blur(14px);
+        transition: transform 180ms var(--spring);
       }
-      .badge.warn { border-color: var(--warn); color: var(--warn); }
-      .badge.hot  { border-color: var(--hot);  color: var(--hot); }
-      .dot {
-        width: 7px; height: 7px; border-radius: 50%; background: var(--muted);
+      .pill:active { transform: scale(0.94); }
+      .pill.tap-disabled { cursor: default; }
+      .pill.tap-disabled:active { transform: none; }
+      .pill.accent {
+        border-color: var(--line-hot);
+        background: linear-gradient(135deg,
+          color-mix(in srgb, var(--accent) 18%, var(--bg-card)),
+          color-mix(in srgb, var(--accent-2) 18%, var(--bg-card)));
+        color: var(--gauge-text);
+        font-weight: 600;
       }
+      .pill.warn { border-color: var(--warn); color: var(--warn); }
+      .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gauge-muted); }
       .dot.connected { background: var(--good); box-shadow: 0 0 6px var(--good); }
       .dot.degraded { background: var(--warn); }
       .dot.disconnected { background: var(--hot); }
 
-      main {
-        display: grid;
-        grid-template-columns: 240px 1fr;
-        gap: 14px;
-        min-height: 0;
-      }
-      /* ── Palette ─────────────────────────────────────────────── */
-      .palette {
-        background: var(--bg-panel);
+      /* ── Stage = full-bleed hero + overlays ───────────────── */
+      main.stage {
+        flex: 1;
+        position: relative;
+        margin: 0 14px 8px;
+        background: var(--gauge-panel);
         border: 1px solid var(--line);
-        border-radius: 16px;
-        padding: 14px;
-        overflow: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .palette-title {
-        font-size: 11px;
-        color: var(--muted);
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        margin-bottom: 2px;
-      }
-      .widget-card {
-        background: var(--bg-card);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 12px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 14px;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-tap-highlight-color: rgba(34, 211, 238, 0.15);
-        transition: transform 100ms ease, border-color 100ms ease;
-      }
-      .widget-card:active { transform: scale(0.97); }
-      .widget-card.selected {
-        border-color: var(--line-hot);
-        background: #0d1a2a;
-        box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.25);
-      }
-      .widget-card .glyph {
-        width: 28px; height: 28px;
-        border-radius: 6px;
-        background: linear-gradient(135deg, #0ea5e9, #22d3ee);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 700;
-        color: #06121f;
-        flex: none;
-      }
-      .palette-hint {
-        font-size: 11px;
-        color: var(--muted);
-        margin-top: 6px;
-        line-height: 1.5;
-      }
-
-      /* ── Slots ───────────────────────────────────────────────── */
-      .slots {
-        display: grid;
-        grid-template-columns: 1fr 1.3fr 1fr;
-        gap: 14px;
+        border-radius: var(--r-xl);
+        overflow: hidden;
+        backdrop-filter: blur(20px);
         min-height: 0;
       }
       .slot {
-        background: var(--bg-panel);
-        border: 1px dashed var(--line);
-        border-radius: 18px;
         position: relative;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
         cursor: pointer;
-        -webkit-tap-highlight-color: rgba(34, 211, 238, 0.08);
-        transition: border-color 120ms ease, background 120ms ease;
+        user-select: none; -webkit-user-select: none;
+        transition: transform 180ms var(--spring);
       }
-      .slot.over { border-color: var(--line-hot); border-style: solid; background: #0d1a2a; }
-      /* Show that the slot is ready to receive when a widget is selected. */
-      body.placing .slot:not(.filled) {
-        border-color: var(--line-hot);
-        background: #0d1a2a;
-      }
-      body.placing .slot:not(.filled) .empty::after {
-        content: ' ← tap to place here';
-        color: var(--accent);
+      .slot:active { transform: scale(0.99); }
+      .slot canvas { display: block; width: 100%; height: 100%; }
+      .slot .slot-no {
+        position: absolute; top: 12px; left: 16px;
+        font-size: 9px;
+        color: var(--gauge-muted);
+        letter-spacing: 1.8px;
+        text-transform: uppercase;
+        pointer-events: none;
+        font-weight: 700;
       }
       .slot .empty {
-        color: var(--muted);
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--gauge-muted);
         font-size: 13px;
-        letter-spacing: 0.4px;
         text-align: center;
         padding: 0 14px;
-      }
-      .slot .slot-no {
-        position: absolute;
-        top: 12px;
-        left: 16px;
-        font-size: 11px;
-        color: var(--muted);
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-      }
-      .slot canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
+        pointer-events: none;
       }
       .slot .clear-btn {
-        position: absolute;
-        top: 12px;
-        right: 12px;
+        position: absolute; top: 10px; right: 10px;
         background: var(--bg-card);
-        color: var(--muted);
+        color: var(--gauge-muted);
         border: 1px solid var(--line);
         border-radius: 999px;
-        padding: 4px 10px;
-        font-size: 11px;
+        width: 28px; height: 28px;
+        font-size: 15px; line-height: 1;
         cursor: pointer;
         display: none;
+        z-index: 2;
       }
       .slot.filled .clear-btn { display: block; }
-
-      /* ── Cluster-aspect preview strip ────────────────────────── */
-      .cluster-preview {
-        background: var(--bg-panel);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 10px 14px 12px;
+      .slot-hero { position: absolute; inset: 0; border-radius: var(--r-xl); }
+      .slot-hero::before {
+        content: ''; position: absolute;
+        left: 50%; top: 50%;
+        width: min(64%, 64vh); aspect-ratio: 1;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        box-shadow: 0 0 80px 10px color-mix(in srgb, var(--accent) 22%, transparent);
+        pointer-events: none; z-index: 0;
       }
-      .cluster-preview .head {
+      .hero-bg-wrap {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        pointer-events: none; z-index: 0;
+      }
+      .hero-bg-wrap > * {
+        width: min(58%, 58vh);
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        border-radius: 50%;
+        -webkit-mask-image: radial-gradient(circle, #000 52%, transparent 86%);
+                mask-image: radial-gradient(circle, #000 52%, transparent 86%);
+        opacity: 0.72;
+        box-shadow: inset 0 0 60px 30px color-mix(in srgb, var(--bg) 60%, transparent);
+      }
+      .slot-hero canvas { position: relative; z-index: 1; }
+      .slot-overlay {
+        position: absolute;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: var(--r-lg);
+        backdrop-filter: blur(14px);
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        transition: top 220ms var(--spring), bottom 220ms var(--spring),
+                    left 220ms var(--spring), right 220ms var(--spring),
+                    width 220ms var(--spring), height 220ms var(--spring);
+      }
+      /* Size scale — base dimensions, applied per data-size. */
+      .slot-overlay[data-size='S'] {
+        width:  24%; max-width: 280px; min-width: 160px;
+        height: 26%; max-height: 180px; min-height: 100px;
+      }
+      .slot-overlay[data-size='M'] {
+        width:  30%; max-width: 360px; min-width: 200px;
+        height: 32%; max-height: 220px; min-height: 120px;
+      }
+      .slot-overlay[data-size='L'] {
+        width:  38%; max-width: 440px; min-width: 240px;
+        height: 40%; max-height: 280px; min-height: 150px;
+      }
+      /* Corner anchors — set just two edges so width/height stay
+         driven by [data-size]. */
+      .slot-overlay[data-pos='tl'] { top: 16px;    left: 16px;  bottom: auto; right: auto; }
+      .slot-overlay[data-pos='tr'] { top: 16px;    right: 16px; bottom: auto; left: auto; }
+      .slot-overlay[data-pos='bl'] { bottom: 16px; left: 16px;  top: auto;    right: auto; }
+      .slot-overlay[data-pos='br'] { bottom: 16px; right: 16px; top: auto;    left: auto; }
+      body.placing .slot:not(.filled) {
+        outline: 2px dashed var(--line-hot);
+        outline-offset: -8px;
+        animation: pulse-border 1.4s ease-in-out infinite;
+      }
+      @keyframes pulse-border {
+        0%,100% { outline-color: color-mix(in srgb, var(--line-hot) 55%, transparent); }
+        50%     { outline-color: var(--line-hot); }
+      }
+      body.placing .slot:not(.filled) .empty::after {
+        content: ' → tap to place ✨';
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* ── Dock (replaces palette sidebar + footer) ──────────── */
+      .dock {
+        flex: 0 0 auto;
         display: flex;
+        gap: 8px;
         align-items: center;
-        justify-content: space-between;
-        font-size: 11px;
-        color: var(--muted);
-        letter-spacing: 1.5px;
+        padding: 10px 14px 14px;
+      }
+      .dock .group { display: flex; gap: 6px; align-items: center; }
+      .dock .group.right { margin-left: auto; }
+      .dock .slot-indicators {
+        display: flex; gap: 5px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+      }
+      .dock .slot-indicators .si {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--gauge-muted);
+        opacity: 0.35;
+      }
+      .dock .slot-indicators .si.filled {
+        background: var(--accent);
+        opacity: 1;
+        box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 50%, transparent);
+      }
+      .dock-btn {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        color: var(--gauge-text);
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-size: 13px;
+        min-height: 44px;
+        font-weight: 600;
+        font-family: var(--gauge-font);
+        cursor: pointer;
+        backdrop-filter: blur(14px);
+        transition: transform 180ms var(--spring), box-shadow 180ms ease;
+        display: inline-flex; gap: 6px; align-items: center;
+      }
+      .dock-btn:active { transform: scale(0.94); }
+      .dock-btn.primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #0a0a0f;
+        border: 0;
+        font-weight: 800;
+        box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
+      }
+      .dock-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .dock-btn:disabled:active { transform: none; }
+
+      /* ── Sheets ────────────────────────────────────────────── */
+      .sheet-scrim {
+        position: fixed; inset: 0;
+        background: rgba(2, 4, 10, 0.6);
+        backdrop-filter: blur(6px);
+        z-index: 80;
+        display: none;
+      }
+      .sheet-scrim.shown { display: block; }
+      .sheet {
+        position: fixed;
+        left: 50%; bottom: 0;
+        transform: translateX(-50%) translateY(100%);
+        width: min(720px, calc(100% - 28px));
+        margin-bottom: 14px;
+        background: var(--gauge-panel);
+        border: 1px solid var(--line);
+        border-radius: var(--r-xl);
+        padding: 18px 20px 22px;
+        z-index: 90;
+        transition: transform 280ms var(--spring);
+        backdrop-filter: blur(24px);
+        box-shadow: 0 -20px 60px -10px rgba(0,0,0,0.5);
+        max-height: 70vh;
+        overflow: auto;
+      }
+      .sheet.shown { transform: translateX(-50%) translateY(0); }
+      .sheet h3 {
+        margin: 0 0 6px;
+        font-size: 16px; font-weight: 800;
+        color: var(--gauge-text);
+        letter-spacing: -0.3px;
+      }
+      .sheet .sub {
+        font-size: 12px;
+        color: var(--gauge-muted);
+        margin-bottom: 14px;
+      }
+      .sheet-row { margin-bottom: 14px; }
+      .sheet-row-label {
+        font-size: 9px;
+        color: var(--gauge-muted);
+        letter-spacing: 1.8px;
         text-transform: uppercase;
         margin-bottom: 8px;
+        font-weight: 700;
       }
-      .cluster-preview .head .live {
-        text-transform: none;
-        letter-spacing: 0.2px;
-        display: inline-flex;
-        gap: 6px;
-        align-items: center;
+      .sheet-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-size: 13px;
+        min-height: 44px;
+        color: var(--gauge-text);
+        cursor: pointer;
+        user-select: none; -webkit-user-select: none;
+        transition: transform 160ms var(--spring), border-color 160ms ease, background 160ms ease;
         font-weight: 500;
-        color: var(--muted);
+        display: inline-flex; align-items: center;
       }
-      .cluster-preview .head .live .dot.live {
-        width: 7px;
-        height: 7px;
+      .chip:active { transform: scale(0.93); }
+      .chip.active {
+        background: linear-gradient(135deg,
+          color-mix(in srgb, var(--accent) 20%, var(--bg-card)),
+          color-mix(in srgb, var(--accent-2) 20%, var(--bg-card)));
+        border-color: var(--line-hot);
+      }
+      .swatch {
+        width: 36px; height: 36px;
         border-radius: 50%;
-        background: var(--good);
-        box-shadow: 0 0 6px var(--good);
-        animation: pulse 1.6s ease-in-out infinite;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: transform 160ms var(--spring);
+        box-shadow: 0 4px 10px -2px rgba(0,0,0,0.4);
       }
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
+      .swatch:active { transform: scale(0.9); }
+      .swatch.active {
+        border-color: var(--gauge-text);
+        box-shadow: 0 0 0 2px var(--gauge-panel), 0 0 0 4px var(--line-hot), 0 4px 10px -2px rgba(0,0,0,0.4);
       }
-      /* Strip is sized to the cluster's native aspect (1920:720). Use
-         aspect-ratio so the canvas's display-rect always matches the
-         cluster surface, regardless of the IVI's window width. */
-      .cluster-preview .strip {
-        width: 100%;
-        aspect-ratio: 1920 / 720;
-        max-height: 220px;
-        background: radial-gradient(circle at 50% 0%, #0d1726 0%, transparent 60%), var(--bg);
-        border-radius: 10px;
+      .theme-tile {
+        flex: 1 1 calc(33.33% - 8px);
+        min-width: 160px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: var(--r-md);
+        padding: 12px;
+        cursor: pointer;
+        transition: transform 200ms var(--spring), border-color 180ms ease;
+      }
+      .theme-tile:active { transform: scale(0.96); }
+      .theme-tile.active {
+        border-color: var(--line-hot);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--line-hot) 25%, transparent);
+      }
+      .theme-tile .name {
+        font-weight: 800; font-size: 14px; color: var(--gauge-text);
+        display: flex; align-items: center; gap: 6px;
+      }
+      .theme-tile .name .em { font-size: 16px; }
+      .theme-tile .desc { font-size: 11px; color: var(--gauge-muted); margin-top: 3px; }
+      .theme-tile .preview {
+        margin-top: 10px;
+        height: 38px;
+        border-radius: var(--r-sm);
+        position: relative;
         overflow: hidden;
       }
-      .cluster-preview .strip canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-      }
-
-      /* ── Footer ──────────────────────────────────────────────── */
-      footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        font-size: 12px;
-        color: var(--muted);
-      }
-      footer .left, footer .right {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      #push {
-        background: linear-gradient(135deg, #0ea5e9, #22d3ee);
-        color: #06121f;
-        border: 0;
-        padding: 10px 20px;
-        border-radius: 10px;
-        font-size: 14px;
-        font-weight: 700;
+      .sheet-close {
+        position: absolute; top: 14px; right: 14px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        color: var(--gauge-muted);
+        border-radius: 50%;
+        width: 30px; height: 30px;
+        font-size: 15px; line-height: 1;
         cursor: pointer;
-        letter-spacing: 0.3px;
-      }
-      #push:disabled {
-        background: #1f2a44;
-        color: var(--muted);
-        cursor: not-allowed;
-      }
-      #cap-banner {
-        background: #2a1a0d;
-        border: 1px solid var(--warn);
-        color: #fcd9a8;
-        padding: 6px 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        display: none;
-      }
-      #cap-banner.shown { display: inline-block; }
-      /* `.info` overrides — used when the resolver falls back to the
-         driver-labelled passenger panel; not an error, just a notice. */
-      #cap-banner.info {
-        background: #0a1a2a;
-        border-color: var(--accent);
-        color: #b9d8f0;
       }
 
-      /* Connection error overlay */
+      /* Widget grid in the Widgets sheet — compact cards. */
+      .widget-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+      }
+      .widget-tile {
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: var(--r-md);
+        padding: 10px 12px;
+        cursor: pointer;
+        display: flex; align-items: center; gap: 10px;
+        transition: transform 180ms var(--spring), border-color 180ms ease, background 180ms ease;
+      }
+      .widget-tile:active { transform: scale(0.96); }
+      .widget-tile.selected {
+        border-color: var(--line-hot);
+        background: color-mix(in srgb, var(--line-hot) 14%, var(--bg-card));
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--line-hot) 25%, transparent);
+      }
+      .widget-tile .glyph {
+        width: 30px; height: 30px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 16px;
+        flex: none;
+        box-shadow: 0 3px 10px -2px color-mix(in srgb, var(--accent) 40%, transparent);
+      }
+      .widget-tile .name { font-weight: 600; font-size: 13px; }
+
+      /* Tools sheet inside — three vertically-stacked rows. */
+      .slot-chips { display: flex; flex-direction: column; gap: 6px; }
+      .slot-chip {
+        display: flex; align-items: center; gap: 10px;
+        background: var(--bg-card);
+        border: 1px solid var(--line);
+        border-radius: var(--r-md);
+        padding: 12px 12px;
+        min-height: 48px;
+        cursor: pointer;
+        transition: transform 160ms var(--spring), border-color 160ms ease;
+        font-size: 13px;
+      }
+      .slot-chip:active { transform: scale(0.97); }
+      .slot-chip .label {
+        font-size: 9px;
+        color: var(--gauge-muted);
+        letter-spacing: 1.4px;
+        text-transform: uppercase;
+        font-weight: 700;
+        width: 60px; flex: none;
+      }
+      .slot-chip .em { font-size: 15px; }
+      .slot-chip .desc {
+        flex: 1; min-width: 0;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        color: var(--gauge-text); font-weight: 500;
+      }
+      .slot-chip .swatch-mini {
+        width: 12px; height: 12px; border-radius: 50%;
+        flex: none;
+        box-shadow: 0 0 0 1px var(--line) inset;
+      }
+      .slot-chip .x {
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--gauge-muted);
+        border-radius: 999px;
+        width: 32px; height: 32px;
+        font-size: 16px; line-height: 1;
+        flex: none; cursor: pointer;
+      }
+      .slot-chip.empty .desc {
+        color: var(--gauge-muted); font-style: italic; font-weight: 400;
+      }
+      .slot-chip.empty .swatch-mini, .slot-chip.empty .x { visibility: hidden; }
+
+      /* ── Notice + debug ───────────────────────────────────── */
       #notice {
-        position: fixed;
-        inset: 0;
+        position: fixed; inset: 0;
         background: rgba(6, 8, 13, 0.92);
-        display: none;
-        align-items: center;
-        justify-content: center;
+        display: none; align-items: center; justify-content: center;
         z-index: 100;
-        font-size: 18px;
-        color: var(--muted);
-        flex-direction: column;
-        gap: 12px;
-        padding: 24px;
-        text-align: center;
+        font-size: 18px; color: var(--gauge-muted);
+        flex-direction: column; gap: 12px; padding: 24px; text-align: center;
       }
       #notice.shown { display: flex; }
-      #notice strong { color: var(--accent); font-size: 22px; font-weight: 600; }
-
-      /* Debug pane — fixed bottom-left, toggleable. */
+      #notice strong { color: var(--accent); font-size: 22px; font-weight: 800; }
       #debug-pane {
-        position: fixed;
-        bottom: 14px;
-        left: 14px;
-        max-width: 480px;
-        max-height: 40vh;
+        position: fixed; bottom: 70px; left: 14px;
+        max-width: 480px; max-height: 40vh;
         background: rgba(15, 20, 33, 0.96);
-        backdrop-filter: blur(8px);
         border: 1px solid var(--line);
-        border-radius: 10px;
+        border-radius: var(--r-md);
         padding: 10px 12px;
         font-size: 11px;
-        color: var(--muted);
-        z-index: 90;
+        color: var(--gauge-muted);
+        z-index: 70;
         display: none;
         overflow: hidden;
+        backdrop-filter: blur(20px);
       }
       #debug-pane.shown { display: flex; flex-direction: column; }
       #debug-pane .debug-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        display: flex; justify-content: space-between; align-items: center;
         margin-bottom: 6px;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        font-size: 10px;
+        letter-spacing: 0.5px; text-transform: uppercase; font-size: 10px;
       }
       #debug-pane button {
         background: transparent;
-        color: var(--muted);
-        border: 0;
-        cursor: pointer;
-        padding: 0 4px;
-        font-size: 14px;
+        color: var(--gauge-muted);
+        border: 0; cursor: pointer; padding: 0 4px; font-size: 14px;
       }
       #debug-pane pre {
         margin: 0;
         font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-        font-size: 11px;
-        line-height: 1.45;
+        font-size: 11px; line-height: 1.45;
         color: #b9d8f0;
         overflow: auto;
-        white-space: pre-wrap;
-        word-break: break-word;
+        white-space: pre-wrap; word-break: break-word;
       }
-      /* Make the trim badge tappable as the debug toggle. */
-      #trim-badge { cursor: pointer; }
+      #cap-banner {
+        background: color-mix(in srgb, var(--warn) 18%, transparent);
+        border: 1px solid var(--warn);
+        color: var(--gauge-text);
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        display: none;
+      }
+      #cap-banner.shown { display: inline-block; }
+      #cap-banner.info {
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        border-color: var(--accent);
+      }
     </style>
   </head>
-  <body>
-    <div id="app">
-      <header>
-        <div class="left">
-          <span class="brand">i99dash · Gauge Builder</span>
-          <span class="badge"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span></span>
-        </div>
-        <div class="right">
-          <span class="badge" id="brand-badge">—</span>
-          <span class="badge" id="trim-badge">trim: —</span>
-        </div>
-      </header>
+  <body data-theme="stealth">
+    <header>
+      <div class="left">
+        <span class="brand">Gauge Builder</span>
+        <span class="pill tap-disabled"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span></span>
+        <span id="cap-banner"></span>
+      </div>
+      <div class="right">
+        <span class="pill tap-disabled" id="brand-badge">—</span>
+        <span class="pill" id="trim-badge">L8</span>
+        <span class="pill accent" id="theme-pill" title="Switch the vibe">🌑 <span id="theme-name">Stealth</span></span>
+      </div>
+    </header>
 
-      <main>
-        <aside class="palette">
-          <div class="palette-title">Widgets</div>
-          <div id="palette-list"></div>
-          <div class="palette-hint">
-            Tap a widget, then tap a slot to place it. Tap the same widget again to cancel. Tap × on a slot to clear it.
-          </div>
-        </aside>
+    <main class="stage" id="stage">
+      <div class="slot slot-hero" data-slot="1">
+        <div class="hero-bg-wrap" id="hero-bg"></div>
+        <div class="slot-no">Slot 2 · hero</div>
+        <canvas></canvas>
+        <div class="empty">Drop your main gauge here 🎯</div>
+        <button class="clear-btn" data-clear="1" aria-label="Clear slot 2">×</button>
+      </div>
+      <div class="slot slot-overlay" data-slot="0" data-pos="bl" data-size="M">
+        <div class="slot-no">Slot 1</div>
+        <canvas></canvas>
+        <div class="empty">Tap a widget</div>
+        <button class="clear-btn" data-clear="0" aria-label="Clear slot 1">×</button>
+      </div>
+      <div class="slot slot-overlay" data-slot="2" data-pos="br" data-size="M">
+        <div class="slot-no">Slot 3</div>
+        <canvas></canvas>
+        <div class="empty">Tap a widget</div>
+        <button class="clear-btn" data-clear="2" aria-label="Clear slot 3">×</button>
+      </div>
+    </main>
 
-        <section class="slots" id="slots">
-          <div class="slot" data-slot="0">
-            <div class="slot-no">Slot 1</div>
-            <canvas></canvas>
-            <div class="empty">Drop a widget here</div>
-            <button class="clear-btn" data-clear="0">× clear</button>
-          </div>
-          <div class="slot" data-slot="1">
-            <div class="slot-no">Slot 2 · centre</div>
-            <canvas></canvas>
-            <div class="empty">Drop a widget here</div>
-            <button class="clear-btn" data-clear="1">× clear</button>
-          </div>
-          <div class="slot" data-slot="2">
-            <div class="slot-no">Slot 3</div>
-            <canvas></canvas>
-            <div class="empty">Drop a widget here</div>
-            <button class="clear-btn" data-clear="2">× clear</button>
-          </div>
-        </section>
-      </main>
+    <nav class="dock">
+      <div class="group">
+        <button class="dock-btn" id="open-widgets">➕ Widgets</button>
+        <button class="dock-btn" id="open-tools">🧰 Tools</button>
+        <span class="slot-indicators" id="slot-indicators" title="Filled slots">
+          <span class="si"></span><span class="si"></span><span class="si"></span>
+        </span>
+        <button class="dock-btn" id="open-more">⋯</button>
+      </div>
+      <div class="group right">
+        <button class="dock-btn primary" id="push" disabled>🚀 Send</button>
+      </div>
+    </nav>
 
-      <section class="cluster-preview">
-        <div class="head">
-          <span>Cluster preview · live</span>
-          <span class="live">
-            <span class="dot live"></span>
-            <span id="freshness">streaming live signals</span>
-          </span>
-        </div>
-        <div class="strip">
-          <canvas id="preview-canvas"></canvas>
-        </div>
-      </section>
+    <div class="sheet-scrim" id="sheet-scrim"></div>
 
-      <footer>
-        <div class="left">
-          <span id="cap-banner">Cluster pixels not supported on this trim — preview only.</span>
-          <span class="badge" id="layout-saved">layout: not saved</span>
-        </div>
-        <div class="right">
-          <button id="reset">Reset</button>
-          <button id="push" disabled>Push to cluster</button>
-        </div>
-      </footer>
+    <!-- Widgets sheet — grid of widget tiles. Tap to select; sheet auto-closes. -->
+    <div class="sheet" id="widgets-sheet" role="dialog" aria-label="Pick a widget">
+      <button class="sheet-close" data-close-sheet="widgets-sheet">×</button>
+      <h3>➕ Pick a widget</h3>
+      <div class="sub">Tap one, then tap a slot. Long-press a filled slot to restyle it.</div>
+      <div class="widget-grid" id="widget-grid"></div>
     </div>
 
-    <!-- Debug pane (toggle by tapping the trim badge). Pre-fills with
-         the raw display.list response so we can see what the host
-         actually emits — chromium's console.info isn't bridged to
-         logcat on the Leopard 8 head unit build. -->
+    <!-- Tools sheet — slots + quick actions + presets. -->
+    <div class="sheet" id="tools-sheet" role="dialog" aria-label="Tools">
+      <button class="sheet-close" data-close-sheet="tools-sheet">×</button>
+      <h3>🧰 Tools</h3>
+      <div class="sub">Quick fixes, slot summary, full-layout presets.</div>
+      <div class="sheet-row">
+        <div class="sheet-row-label">Slots</div>
+        <div class="slot-chips" id="slot-chips"></div>
+      </div>
+      <div class="sheet-row">
+        <div class="sheet-row-label">⚡ Quick actions</div>
+        <div class="sheet-chips" id="quick-actions">
+          <button class="chip" data-action="mirror">↔ Mirror 1→3</button>
+          <button class="chip" data-action="swap">🔄 Swap 1↔3</button>
+          <button class="chip" data-action="match">🎨 Match colors</button>
+          <button class="chip" data-action="hero">⤴ Hero ← 1</button>
+        </div>
+      </div>
+      <div class="sheet-row">
+        <div class="sheet-row-label">🎭 Presets</div>
+        <div class="sheet-chips" id="presets">
+          <button class="chip" data-preset="race">🏁 Race day</button>
+          <button class="chip" data-preset="eco">🌱 Eco cruise</button>
+          <button class="chip" data-preset="night">🌃 Late night</button>
+          <button class="chip" data-preset="minimal">💎 Minimal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- More sheet — Glow up / Reset / Debug. -->
+    <div class="sheet" id="more-sheet" role="dialog" aria-label="More">
+      <button class="sheet-close" data-close-sheet="more-sheet">×</button>
+      <h3>⋯ More</h3>
+      <div class="sub">Less-used actions.</div>
+      <div class="sheet-chips">
+        <button class="chip" id="more-glowup">🎲 Glow up</button>
+        <button class="chip" id="more-reset">↻ Reset layout</button>
+        <button class="chip" id="more-debug">🐛 Toggle debug</button>
+        <span id="layout-saved" style="display:inline-flex; align-items:center; padding:8px 14px; font-size:11px; color:var(--gauge-muted)">layout: empty</span>
+      </div>
+    </div>
+
+    <!-- Slot edit sheet — opened by long-press OR tapping a slot chip in Tools. -->
+    <div class="sheet" id="slot-sheet" role="dialog" aria-label="Customize slot">
+      <button class="sheet-close" data-close-sheet="slot-sheet">×</button>
+      <h3 id="slot-sheet-title">Customize slot</h3>
+      <div class="sub" id="slot-sheet-sub">Pick how it looks + the accent color.</div>
+      <div class="sheet-row">
+        <div class="sheet-row-label">✨ Looks</div>
+        <div class="sheet-chips" id="style-chips"></div>
+      </div>
+      <div class="sheet-row">
+        <div class="sheet-row-label">🎨 Color</div>
+        <div class="sheet-chips" id="color-chips"></div>
+      </div>
+      <!-- Layout row — overlay slots only (position + size). Hidden when
+           editing the hero. -->
+      <div class="sheet-row" id="layout-row" hidden>
+        <div class="sheet-row-label">📐 Layout <span style="text-transform:none; letter-spacing:0; color:var(--gauge-muted); font-weight:500;">— position + size</span></div>
+        <div style="font-size:10px; color:var(--gauge-muted); letter-spacing:1.4px; text-transform:uppercase; margin-bottom:6px;">Position</div>
+        <div class="sheet-chips" id="position-chips" style="margin-bottom:10px;"></div>
+        <div style="font-size:10px; color:var(--gauge-muted); letter-spacing:1.4px; text-transform:uppercase; margin-bottom:6px;">Size</div>
+        <div class="sheet-chips" id="size-chips"></div>
+      </div>
+      <div class="sheet-row" id="bg-row" hidden>
+        <div class="sheet-row-label">🖼️ Backdrop <span style="text-transform:none; letter-spacing:0; color:var(--gauge-muted); font-weight:500;">— circular, feathered</span></div>
+        <div class="sheet-chips" id="bg-chips"></div>
+        <input id="bg-file" type="file" accept="image/*" hidden />
+        <div id="bg-status" style="font-size:11px; color:var(--gauge-muted); margin-top:8px; min-height:14px;"></div>
+        <input id="bg-url" type="url" placeholder="…or paste an image / video URL"
+               style="width:100%; margin-top:8px; padding:9px 14px; border-radius:12px;
+                      background:var(--bg-card); border:1px solid var(--line);
+                      color:var(--gauge-text); font-family:var(--gauge-font); font-size:13px;"
+               autocomplete="off" spellcheck="false" />
+      </div>
+    </div>
+
+    <!-- Theme sheet. -->
+    <div class="sheet" id="theme-sheet" role="dialog" aria-label="Pick theme">
+      <button class="sheet-close" data-close-sheet="theme-sheet">×</button>
+      <h3>🌈 Vibes</h3>
+      <div class="sub">Reskins editor + cluster. Pick your mood.</div>
+      <div class="sheet-chips" id="theme-tiles" style="gap:10px"></div>
+    </div>
+
     <div id="debug-pane">
       <div class="debug-head">
         <span>Debug · raw bridge responses</span>
-        <button id="debug-close" type="button">×</button>
+        <button id="debug-close">×</button>
       </div>
       <pre id="debug-output">(waiting for responses…)</pre>
     </div>
@@ -465,6 +784,6 @@
       <div>This mini-app only works inside the i99dash WebView. Open it from the car or via <code>i99dash dev</code>.</div>
     </div>
 
-    <script type="module" src="./editor.js"></script>
+    <script src="./editor.bundle.js"></script>
   </body>
 </html>

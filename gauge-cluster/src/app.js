@@ -86,10 +86,18 @@ const SIGNALS = [
   'tpms_pressure_rr',
 ];
 
-// Some BYD signals are stored as integer × 10 (cabin temp in °C × 10).
-// The catalog `units` field flags these as `celsius_x10`; hard-listed
-// here for the v1 cluster.
-const TENTH = new Set(['ac_cabin_temp', 'ac_temp_out']);
+// On the Leopard 8 / DiLink 5.1 ROM verified against this car
+// (192.168.4.72), AC temperatures (`ac_cabin_temp`, `ac_temp_out`,
+// `ac_target_temp`) cross the bridge as RAW °C integers — the gate
+// stores them as `int cabinTempC`, `int outsideTempC` with no
+// scaling. Earlier BYD docs claimed °C × 10, but that's not what
+// this ROM produces. Display raw.
+//
+// If a future BYD ROM does scale ×10, add the names back to this
+// set and the divisor below kicks in. The catalog's `units` field
+// will eventually carry this per-name so the mini-app reads it
+// dynamically.
+const TENTH = new Set();
 
 // ── State ───────────────────────────────────────────────────────
 const state = Object.create(null);

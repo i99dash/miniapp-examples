@@ -1,16 +1,21 @@
 {
   "name": "i99dash-example-gauge-builder",
-  "version": "0.1.7",
+  "version": "0.5.3",
   "private": true,
   "description": "Customize the instrument cluster by drag-and-drop on the IVI, push the layout to the cluster surface. Supports DiLink 5.0 (preview only) and DiLink 5.1 (cluster pixel render). v2 bridge.",
   "type": "module",
   "scripts": {
     "dev": "i99dash dev",
     "validate": "i99dash validate",
-    "build": "i99dash build",
-    "publish": "i99dash publish"
+    "bundle": "esbuild src/editor.js src/cluster.js --bundle --format=iife --target=es2019 --outdir=src --entry-names=[name].bundle",
+    "build": "pnpm bundle && i99dash build",
+    "publish": "pnpm bundle && i99dash publish"
   },
   "devDependencies": {
+    "esbuild": "^0.25.0",
     "i99dash": "^5.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "keytar"]
   }
 }
