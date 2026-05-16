@@ -1,16 +1,43 @@
 (() => {
   // src/app.js
-  var _a;
-  var host = (_a = globalThis.flutter_inappwebview) != null ? _a : globalThis.__i99dashHost;
-  if (!host) {
-    document.getElementById("notice").classList.add("shown");
+  var G = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
+  function resolveHost() {
+    const branded = G.__i99dashHost;
+    if (branded && typeof branded.callHandler === "function") return branded;
+    const legacy = G.flutter_inappwebview;
+    if (legacy && typeof legacy.callHandler === "function") return legacy;
+    return null;
   }
-  var _a2;
-  globalThis.__i99dashEvents = (_a2 = globalThis.__i99dashEvents) != null ? _a2 : {
+  var host = resolveHost();
+  function whenHostReady(timeoutMs = 8e3) {
+    return new Promise((resolve) => {
+      const found = resolveHost();
+      if (found) return resolve(found);
+      let settled = false;
+      const finish = (h) => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener("flutterInAppWebViewPlatformReady", onReady);
+        clearInterval(poll);
+        clearTimeout(timer);
+        resolve(h);
+      };
+      const tryNow = () => {
+        const h = resolveHost();
+        if (h) finish(h);
+      };
+      const onReady = () => tryNow();
+      window.addEventListener("flutterInAppWebViewPlatformReady", onReady);
+      const poll = setInterval(tryNow, 150);
+      const timer = setTimeout(() => finish(resolveHost()), timeoutMs);
+    });
+  }
+  var _a;
+  G.__i99dashEvents = (_a = G.__i99dashEvents) != null ? _a : {
     _handlers: /* @__PURE__ */ Object.create(null),
     on(channel, fn) {
-      var _a3, _b;
-      ((_b = (_a3 = this._handlers)[channel]) != null ? _b : _a3[channel] = /* @__PURE__ */ new Set()).add(fn);
+      var _a2, _b;
+      ((_b = (_a2 = this._handlers)[channel]) != null ? _b : _a2[channel] = /* @__PURE__ */ new Set()).add(fn);
       return () => this._handlers[channel].delete(fn);
     },
     dispatch(channel, payload) {
@@ -45,14 +72,14 @@
     return rawCall(handler, payload);
   }
   function cryptoRandomId() {
-    var _a3;
-    if ((_a3 = globalThis.crypto) == null ? void 0 : _a3.randomUUID) return globalThis.crypto.randomUUID();
+    var _a2;
+    if ((_a2 = G.crypto) == null ? void 0 : _a2.randomUUID) return G.crypto.randomUUID();
     return "rid_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
   }
   function classifyResponse(res, err) {
-    var _a3, _b, _c, _d, _e, _f, _g, _h;
+    var _a2, _b, _c, _d, _e, _f, _g, _h;
     if (err) {
-      const msg = String((_a3 = err == null ? void 0 : err.message) != null ? _a3 : err);
+      const msg = String((_a2 = err == null ? void 0 : err.message) != null ? _a2 : err);
       let code = "handler_not_found";
       if (/PlatformException\(([^,)]+)/i.test(msg)) {
         code = RegExp.$1.trim();
@@ -129,15 +156,15 @@
     unknown: "Host returned an error code the doctor doesn't recognise yet. Copy the full response payload (above) and file a bridge-doctor PR with the new mapping."
   };
   function hintFor(code) {
-    var _a3;
+    var _a2;
     if (!code) return null;
-    return (_a3 = PATCH_HINTS[code]) != null ? _a3 : PATCH_HINTS.unknown;
+    return (_a2 = PATCH_HINTS[code]) != null ? _a2 : PATCH_HINTS.unknown;
   }
   var SUBSCRIBE_LISTEN_MS = 1500;
   var DISPLAY_HOTPLUG_LISTEN_MS = 5e3;
   function uuid() {
-    var _a3;
-    if ((_a3 = globalThis.crypto) == null ? void 0 : _a3.randomUUID) return globalThis.crypto.randomUUID();
+    var _a2;
+    if ((_a2 = G.crypto) == null ? void 0 : _a2.randomUUID) return G.crypto.randomUUID();
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
       return (c === "x" ? r : r & 3 | 8).toString(16);
@@ -146,7 +173,7 @@
   function waitForEvent(channel, timeoutMs) {
     return new Promise((resolve) => {
       let captured = null;
-      const off = globalThis.__i99dashEvents.on(channel, (payload) => {
+      const off = G.__i99dashEvents.on(channel, (payload) => {
         captured = payload;
       });
       setTimeout(() => {
@@ -160,7 +187,7 @@
       id: "capabilities",
       label: "capabilities",
       async run(ctx) {
-        var _a3, _b;
+        var _a2, _b;
         const req = null;
         let res, err;
         try {
@@ -175,7 +202,7 @@
         const data = unwrap(res);
         ctx.capabilities = data;
         const handlers = Array.isArray(data == null ? void 0 : data.handlers) ? data.handlers : [];
-        const ver = (_b = (_a3 = data == null ? void 0 : data.bridgeVersion) != null ? _a3 : data == null ? void 0 : data.version) != null ? _b : "?";
+        const ver = (_b = (_a2 = data == null ? void 0 : data.bridgeVersion) != null ? _a2 : data == null ? void 0 : data.version) != null ? _b : "?";
         return {
           status: "ok",
           summary: `${handlers.length} handlers \xB7 bridge ${ver}`,
@@ -217,7 +244,7 @@
       id: "car.identity",
       label: "car.identity",
       async run(ctx) {
-        var _a3, _b, _c;
+        var _a2, _b, _c;
         const req = null;
         let res, err;
         try {
@@ -231,7 +258,7 @@
         }
         const data = unwrap(res);
         ctx.identity = data;
-        const brand = String((_a3 = data == null ? void 0 : data.brand) != null ? _a3 : "?").toLowerCase();
+        const brand = String((_a2 = data == null ? void 0 : data.brand) != null ? _a2 : "?").toLowerCase();
         const model = (_c = (_b = data == null ? void 0 : data.modelDisplay) != null ? _b : data == null ? void 0 : data.modelCode) != null ? _c : "?";
         return { status: "ok", summary: `${brand} \xB7 ${model}`, request: req, response: res };
       }
@@ -240,7 +267,7 @@
       id: "car.list",
       label: "car.list",
       async run(ctx) {
-        var _a3;
+        var _a2;
         const req = { all: {}, doors: { category: "doors" } };
         const out = {};
         let firstErr = null;
@@ -249,7 +276,7 @@
           try {
             out[k] = await rawCall("car.list", args);
           } catch (e) {
-            out[k] = { __thrown: String((_a3 = e == null ? void 0 : e.message) != null ? _a3 : e) };
+            out[k] = { __thrown: String((_a2 = e == null ? void 0 : e.message) != null ? _a2 : e) };
             if (!firstErr) firstErr = e;
             allOk = false;
           }
@@ -275,7 +302,7 @@
       id: "car.read",
       label: "car.read",
       async run(ctx) {
-        var _a3;
+        var _a2;
         const req = { names: ["battery_pct", "door_lf"] };
         let res, err;
         try {
@@ -288,7 +315,7 @@
           return { status: "fail", summary: c.errorCode, request: req, response: err != null ? err : res, hint: hintFor(c.errorCode) };
         }
         const data = unwrap(res);
-        const values = (_a3 = data == null ? void 0 : data.values) != null ? _a3 : {};
+        const values = (_a2 = data == null ? void 0 : data.values) != null ? _a2 : {};
         const bits = [];
         for (const name of req.names) {
           const v = values[name];
@@ -301,7 +328,7 @@
       id: "car.subscribe",
       label: "car.subscribe \u2192 signal \u2192 unsubscribe",
       async run(ctx) {
-        var _a3;
+        var _a2;
         const key = uuid();
         const req = { names: ["battery_pct"], idempotencyKey: key };
         let res, err;
@@ -316,7 +343,7 @@
           return { status: "fail", summary: c.errorCode, request: req, response: err != null ? err : res, hint: hintFor(c.errorCode) };
         }
         const data = unwrap(res);
-        const subId = (_a3 = data == null ? void 0 : data.subscriptionId) != null ? _a3 : null;
+        const subId = (_a2 = data == null ? void 0 : data.subscriptionId) != null ? _a2 : null;
         const frame = await framePromise;
         let unsubErr = null;
         let unsubRes = null;
@@ -347,7 +374,7 @@
       id: "car.connection.subscribe",
       label: "car.connection.subscribe \u2192 unsubscribe",
       async run() {
-        var _a3, _b, _c, _d, _e;
+        var _a2, _b, _c, _d, _e;
         const req = null;
         const framePromise = waitForEvent("car.connection", SUBSCRIBE_LISTEN_MS);
         let res, err;
@@ -361,7 +388,7 @@
           return { status: "fail", summary: c.errorCode, request: req, response: err != null ? err : res, hint: hintFor(c.errorCode) };
         }
         const frame = await framePromise;
-        const subscriptionId = (_b = (_a3 = unwrap(res)) == null ? void 0 : _a3.subscriptionId) != null ? _b : res == null ? void 0 : res.subscriptionId;
+        const subscriptionId = (_b = (_a2 = unwrap(res)) == null ? void 0 : _a2.subscriptionId) != null ? _b : res == null ? void 0 : res.subscriptionId;
         let unsubErr = null;
         let unsubRes = null;
         try {
@@ -384,7 +411,7 @@
       id: "display.list",
       label: "display.list",
       async run(ctx) {
-        var _a3, _b;
+        var _a2, _b;
         const req = null;
         let res, err;
         try {
@@ -397,12 +424,12 @@
           return { status: "fail", summary: c.errorCode, request: req, response: err != null ? err : res, hint: hintFor(c.errorCode) };
         }
         const data = unwrap(res);
-        const displays = Array.isArray(data) ? data : (_a3 = data == null ? void 0 : data.displays) != null ? _a3 : [];
+        const displays = Array.isArray(data) ? data : (_a2 = data == null ? void 0 : data.displays) != null ? _a2 : [];
         ctx.displays = displays;
         ctx.vehicle = (_b = data == null ? void 0 : data.vehicle) != null ? _b : null;
         const roles = displays.map((d) => {
-          var _a4;
-          return `${(_a4 = d.role) != null ? _a4 : "?"}#${d.id}`;
+          var _a3;
+          return `${(_a3 = d.role) != null ? _a3 : "?"}#${d.id}`;
         }).join(", ");
         return {
           status: "ok",
@@ -416,7 +443,7 @@
       id: "display.subscribe",
       label: "display.subscribe \u2192 hotplug \u2192 unsubscribe",
       async run() {
-        var _a3, _b;
+        var _a2, _b;
         const req = null;
         const framePromise = waitForEvent("display.hotplug", DISPLAY_HOTPLUG_LISTEN_MS);
         let res, err;
@@ -430,7 +457,7 @@
           return { status: "fail", summary: c.errorCode, request: req, response: err != null ? err : res, hint: hintFor(c.errorCode) };
         }
         const data = unwrap(res);
-        const id = (_b = (_a3 = data == null ? void 0 : data.id) != null ? _a3 : data == null ? void 0 : data.subscriptionId) != null ? _b : null;
+        const id = (_b = (_a2 = data == null ? void 0 : data.id) != null ? _a2 : data == null ? void 0 : data.subscriptionId) != null ? _b : null;
         const frame = await framePromise;
         let unsubErr = null;
         let unsubRes = null;
@@ -457,8 +484,8 @@
       id: "surface.create",
       label: "surface.create \u2192 surface.destroy",
       async run(ctx) {
-        var _a3, _b, _c;
-        const displays = (_a3 = ctx.displays) != null ? _a3 : [];
+        var _a2, _b, _c;
+        const displays = (_a2 = ctx.displays) != null ? _a2 : [];
         const target = displays.find((d) => d.id !== 0 && d.role !== "ivi" && !d.isDefault);
         if (!target) {
           return {
@@ -504,7 +531,7 @@
       id: "surface.list",
       label: "surface.list",
       async run() {
-        var _a3;
+        var _a2;
         const req = null;
         let res, err;
         try {
@@ -517,7 +544,7 @@
           return { status: "fail", summary: c.errorCode, request: req, response: err != null ? err : res, hint: hintFor(c.errorCode) };
         }
         const data = unwrap(res);
-        const surfaces = Array.isArray(data) ? data : (_a3 = data == null ? void 0 : data.surfaces) != null ? _a3 : [];
+        const surfaces = Array.isArray(data) ? data : (_a2 = data == null ? void 0 : data.surfaces) != null ? _a2 : [];
         return { status: "ok", summary: `${surfaces.length} active`, request: req, response: res };
       }
     },
@@ -525,7 +552,7 @@
       id: "pkg.launch.passenger",
       label: "pkg.launch \xB7 target=passenger (DiShare test)",
       async run() {
-        var _a3, _b, _c, _d;
+        var _a2, _b, _c, _d;
         const req = { packageName: "com.i99dev.i99dash", targetRole: "passenger" };
         let res, err;
         try {
@@ -545,7 +572,7 @@
           };
         }
         const data = unwrap(res);
-        const path = (_b = (_a3 = data == null ? void 0 : data.path) != null ? _a3 : res == null ? void 0 : res.path) != null ? _b : "?";
+        const path = (_b = (_a2 = data == null ? void 0 : data.path) != null ? _a2 : res == null ? void 0 : res.path) != null ? _b : "?";
         const goodPaths = /* @__PURE__ */ new Set([
           "dishare-cast",
           "dishare-cast-cached",
@@ -576,8 +603,8 @@
       id: "pkg.launch.cluster",
       label: "pkg.launch \xB7 target=cluster (Di5.1 only)",
       async run(ctx) {
-        var _a3, _b, _c;
-        const displays = (_a3 = ctx.displays) != null ? _a3 : [];
+        var _a2, _b, _c;
+        const displays = (_a2 = ctx.displays) != null ? _a2 : [];
         const hasCluster = displays.some((d) => d.role === "cluster");
         if (!hasCluster) {
           return {
@@ -622,8 +649,8 @@
     pend: "\u25D0"
   };
   function statusClass(status) {
-    var _a3;
-    return (_a3 = { ok: "ok", fail: "fail", warn: "warn", skip: "skip", pend: "pend" }[status]) != null ? _a3 : "pend";
+    var _a2;
+    return (_a2 = { ok: "ok", fail: "fail", warn: "warn", skip: "skip", pend: "pend" }[status]) != null ? _a2 : "pend";
   }
   function renderProbeRow(probe) {
     const row = document.createElement("div");
@@ -654,12 +681,12 @@
     return row;
   }
   function updateProbeRow(row, outcome) {
-    var _a3, _b;
+    var _a2, _b;
     const ico = row.querySelector('[data-role="ico"]');
     const summary = row.querySelector('[data-role="summary"]');
     const details = row.querySelector('[data-role="details"]');
     ico.className = `ico ${statusClass(outcome.status)}`;
-    ico.textContent = (_a3 = ICONS[outcome.status]) != null ? _a3 : "?";
+    ico.textContent = (_a2 = ICONS[outcome.status]) != null ? _a2 : "?";
     summary.className = `summary ${outcome.status === "fail" ? "fail" : outcome.status === "warn" ? "warn" : ""}`;
     summary.textContent = (_b = outcome.summary) != null ? _b : "";
     details.innerHTML = "";
@@ -770,8 +797,8 @@
     }
   }
   function updateHeader(ctx) {
-    var _a3, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
-    const ver = (_d = (_c = (_a3 = ctx.capabilities) == null ? void 0 : _a3.bridgeVersion) != null ? _c : (_b = ctx.capabilities) == null ? void 0 : _b.version) != null ? _d : "?";
+    var _a2, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+    const ver = (_d = (_c = (_a2 = ctx.capabilities) == null ? void 0 : _a2.bridgeVersion) != null ? _c : (_b = ctx.capabilities) == null ? void 0 : _b.version) != null ? _d : "?";
     document.getElementById("bridge-ver").textContent = ver;
     const brand = String((_f = (_e = ctx.identity) == null ? void 0 : _e.brand) != null ? _f : "?").toLowerCase();
     const model = (_j = (_i = (_g = ctx.identity) == null ? void 0 : _g.modelDisplay) != null ? _i : (_h = ctx.identity) == null ? void 0 : _h.modelCode) != null ? _j : "?";
@@ -805,13 +832,13 @@
     );
   }
   async function runOneProbe(probe, ctx) {
-    var _a3;
+    var _a2;
     try {
       return await probe.run(ctx);
     } catch (e) {
       return {
         status: "fail",
-        summary: `probe crashed: ${String((_a3 = e == null ? void 0 : e.message) != null ? _a3 : e)}`,
+        summary: `probe crashed: ${String((_a2 = e == null ? void 0 : e.message) != null ? _a2 : e)}`,
         request: null,
         response: e,
         hint: "Bridge Doctor itself threw while running this probe. Check the browser console for the stack trace and file a bug."
@@ -820,7 +847,7 @@
   }
   var dishareLast = document.getElementById("dishare-last");
   async function fireDiShare(target) {
-    var _a3, _b, _c, _d, _e;
+    var _a2, _b, _c, _d, _e;
     dishareLast.className = "last";
     dishareLast.textContent = `casting to ${target}\u2026`;
     let handler, req;
@@ -829,7 +856,7 @@
       try {
         const r = await familyCall("display.list", null);
         const data2 = unwrap(r);
-        displays = Array.isArray(data2) ? data2 : (_a3 = data2 == null ? void 0 : data2.displays) != null ? _a3 : [];
+        displays = Array.isArray(data2) ? data2 : (_a2 = data2 == null ? void 0 : data2.displays) != null ? _a2 : [];
       } catch (_) {
       }
       const cluster = displays.find((d) => d.role === "cluster");
@@ -869,7 +896,12 @@
   document.getElementById("rerun-btn").addEventListener("click", () => {
     runAllProbes().catch((e) => console.error("sweep failed:", e));
   });
-  if (host) {
+  (async () => {
+    host = await whenHostReady();
+    if (!host) {
+      document.getElementById("notice").classList.add("shown");
+      return;
+    }
     runAllProbes().catch((e) => console.error("sweep failed:", e));
-  }
+  })();
 })();

@@ -1,10 +1,42 @@
 (() => {
   // src/app.js
   (function() {
-    var bridge = window.flutter_inappwebview;
-    if (!bridge) {
-      alert("No host bridge \u2014 run inside i99dash.");
-      return;
+    var G = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
+    function resolveHost() {
+      var branded = G.__i99dashHost;
+      if (branded && typeof branded.callHandler === "function") return branded;
+      var legacy = G.flutter_inappwebview;
+      if (legacy && typeof legacy.callHandler === "function") return legacy;
+      return null;
+    }
+    var bridge = resolveHost();
+    function whenHostReady(timeoutMs) {
+      if (timeoutMs == null) timeoutMs = 8e3;
+      return new Promise(function(resolve) {
+        var found = resolveHost();
+        if (found) return resolve(found);
+        var settled = false;
+        function finish(h) {
+          if (settled) return;
+          settled = true;
+          window.removeEventListener("flutterInAppWebViewPlatformReady", onReady);
+          clearInterval(poll);
+          clearTimeout(timer);
+          resolve(h);
+        }
+        function tryNow() {
+          var h = resolveHost();
+          if (h) finish(h);
+        }
+        function onReady() {
+          tryNow();
+        }
+        window.addEventListener("flutterInAppWebViewPlatformReady", onReady);
+        var poll = setInterval(tryNow, 150);
+        var timer = setTimeout(function() {
+          finish(resolveHost());
+        }, timeoutMs);
+      });
     }
     async function call(name, args) {
       var raw = await bridge.callHandler(name, {
@@ -488,8 +520,15 @@
       else if (ok === 0) toast(fail + " failed", "err");
       else toast(ok + " applied \xB7 " + fail + " failed");
     });
-    loadDisplays().catch(function(e) {
-      toast("display.list failed: " + (e && e.message), "err");
-    });
+    (async function() {
+      bridge = await whenHostReady();
+      if (!bridge) {
+        alert("No host bridge \u2014 run inside i99dash.");
+        return;
+      }
+      loadDisplays().catch(function(e) {
+        toast("display.list failed: " + (e && e.message), "err");
+      });
+    })();
   })();
 })();

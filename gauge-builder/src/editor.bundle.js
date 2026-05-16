@@ -1,33 +1,66 @@
 (() => {
   // src/bridge.js
-  var _a, _b;
-  var host = (_b = (_a = globalThis.flutter_inappwebview) != null ? _a : globalThis.__i99dashHost) != null ? _b : null;
+  var G = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
+  function resolveHost() {
+    const branded = G.__i99dashHost;
+    if (branded && typeof branded.callHandler === "function") return branded;
+    const legacy = G.flutter_inappwebview;
+    if (legacy && typeof legacy.callHandler === "function") return legacy;
+    return null;
+  }
+  var host = resolveHost();
   function inHost() {
-    return host != null;
+    return resolveHost() != null;
+  }
+  function whenHostReady(timeoutMs = 8e3) {
+    return new Promise((resolve) => {
+      const now = resolveHost();
+      if (now) return resolve(now);
+      const w = typeof window !== "undefined" ? window : null;
+      let settled = false;
+      const finish = (h) => {
+        if (settled) return;
+        settled = true;
+        if (w) w.removeEventListener("flutterInAppWebViewPlatformReady", onReady);
+        clearInterval(poll);
+        clearTimeout(timer);
+        resolve(h);
+      };
+      const tryNow = () => {
+        const h = resolveHost();
+        if (h) finish(h);
+      };
+      const onReady = () => tryNow();
+      if (w) w.addEventListener("flutterInAppWebViewPlatformReady", onReady);
+      const poll = setInterval(tryNow, 150);
+      const timer = setTimeout(() => finish(resolveHost()), timeoutMs);
+    });
   }
   async function call(handler, payload = {}) {
-    if (!host) throw new Error("not_inside_host");
-    return host.callHandler(handler, payload);
+    const h = await whenHostReady();
+    if (!h) throw new Error("not_inside_host");
+    return h.callHandler(handler, payload);
   }
   async function callNative(handler, params = {}) {
-    var _a3, _b2, _c, _d;
-    if (!host) throw new Error("not_inside_host");
-    const raw = await host.callHandler(handler, {
+    var _a2, _b, _c, _d;
+    const h = await whenHostReady();
+    if (!h) throw new Error("not_inside_host");
+    const raw = await h.callHandler(handler, {
       params,
       idempotencyKey: cryptoUuid()
     });
     if (raw && raw.success === false) {
-      const err = (_a3 = raw.error) != null ? _a3 : {};
-      throw new Error(`${(_b2 = err.code) != null ? _b2 : "host_error"}: ${(_c = err.message) != null ? _c : "unknown"}`);
+      const err = (_a2 = raw.error) != null ? _a2 : {};
+      throw new Error(`${(_b = err.code) != null ? _b : "host_error"}: ${(_c = err.message) != null ? _c : "unknown"}`);
     }
     return (_d = raw && raw.data) != null ? _d : raw;
   }
-  var _a2;
-  var events = (_a2 = globalThis.__i99dashEvents) != null ? _a2 : globalThis.__i99dashEvents = {
+  var _a;
+  var events = (_a = G.__i99dashEvents) != null ? _a : G.__i99dashEvents = {
     _handlers: /* @__PURE__ */ Object.create(null),
     on(channel, fn) {
-      var _a3, _b2;
-      ((_b2 = (_a3 = this._handlers)[channel]) != null ? _b2 : _a3[channel] = /* @__PURE__ */ new Set()).add(fn);
+      var _a2, _b;
+      ((_b = (_a2 = this._handlers)[channel]) != null ? _b : _a2[channel] = /* @__PURE__ */ new Set()).add(fn);
       return () => this._handlers[channel].delete(fn);
     },
     dispatch(channel, payload) {
@@ -53,8 +86,8 @@
     return events.on(channel, fn);
   }
   function cryptoUuid() {
-    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
-      return globalThis.crypto.randomUUID();
+    if (G.crypto && typeof G.crypto.randomUUID === "function") {
+      return G.crypto.randomUUID();
     }
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
@@ -75,8 +108,8 @@
   ];
   var COLOR_BY_ID = Object.fromEntries(COLORS.map((c) => [c.id, c.hex]));
   function colorHex(id) {
-    var _a3;
-    return (_a3 = COLOR_BY_ID[id]) != null ? _a3 : COLOR_BY_ID.cyan;
+    var _a2;
+    return (_a2 = COLOR_BY_ID[id]) != null ? _a2 : COLOR_BY_ID.cyan;
   }
   var THEMES = [
     { id: "stealth", label: "Stealth", emoji: "\u{1F311}", desc: "Pure dark, ultra-clean", defaultAccent: "cyan" },
@@ -95,8 +128,8 @@
       emoji: "\u{1F4A8}",
       signals: ["speed_kmh"],
       read(signals) {
-        var _a3;
-        return { value: (_a3 = signals.speed_kmh) != null ? _a3 : 0, label: "Speed", unit: "km/h", max: 180, min: 0 };
+        var _a2;
+        return { value: (_a2 = signals.speed_kmh) != null ? _a2 : 0, label: "Speed", unit: "km/h", max: 180, min: 0 };
       }
     },
     {
@@ -105,8 +138,8 @@
       emoji: "\u26A1",
       signals: ["motor_f_rpm", "motor_r_rpm", "engine_rpm"],
       read(s) {
-        var _a3, _b2, _c;
-        const v = s.motor_f_rpm != null || s.motor_r_rpm != null ? Math.max((_a3 = s.motor_f_rpm) != null ? _a3 : 0, (_b2 = s.motor_r_rpm) != null ? _b2 : 0) : (_c = s.engine_rpm) != null ? _c : 0;
+        var _a2, _b, _c;
+        const v = s.motor_f_rpm != null || s.motor_r_rpm != null ? Math.max((_a2 = s.motor_f_rpm) != null ? _a2 : 0, (_b = s.motor_r_rpm) != null ? _b : 0) : (_c = s.engine_rpm) != null ? _c : 0;
         return { value: v, label: "RPM", unit: "rpm", max: 8e3, min: 0 };
       }
     },
@@ -116,8 +149,8 @@
       emoji: "\u{1F50B}",
       signals: ["battery_pct"],
       read(s) {
-        var _a3;
-        return { value: (_a3 = s.battery_pct) != null ? _a3 : 0, label: "Battery", unit: "%", max: 100, min: 0 };
+        var _a2;
+        return { value: (_a2 = s.battery_pct) != null ? _a2 : 0, label: "Battery", unit: "%", max: 100, min: 0 };
       }
     },
     {
@@ -126,8 +159,8 @@
       emoji: "\u{1F331}",
       signals: ["range_ev_km"],
       read(s) {
-        var _a3;
-        return { value: (_a3 = s.range_ev_km) != null ? _a3 : 0, label: "EV range", unit: "km", max: 600, min: 0 };
+        var _a2;
+        return { value: (_a2 = s.range_ev_km) != null ? _a2 : 0, label: "EV range", unit: "km", max: 600, min: 0 };
       }
     },
     {
@@ -136,8 +169,8 @@
       emoji: "\u26FD",
       signals: ["range_fuel_km"],
       read(s) {
-        var _a3;
-        return { value: (_a3 = s.range_fuel_km) != null ? _a3 : 0, label: "Fuel range", unit: "km", max: 1e3, min: 0 };
+        var _a2;
+        return { value: (_a2 = s.range_fuel_km) != null ? _a2 : 0, label: "Fuel range", unit: "km", max: 1e3, min: 0 };
       }
     },
     {
@@ -146,8 +179,8 @@
       emoji: "\u{1F321}\uFE0F",
       signals: ["ac_cabin_temp"],
       read(s) {
-        var _a3;
-        return { value: (_a3 = s.ac_cabin_temp) != null ? _a3 : 0, label: "Cabin", unit: "\xB0C", max: 40, min: -10 };
+        var _a2;
+        return { value: (_a2 = s.ac_cabin_temp) != null ? _a2 : 0, label: "Cabin", unit: "\xB0C", max: 40, min: -10 };
       }
     }
   ];
@@ -184,7 +217,7 @@
   var BACKGROUND_BY_ID = Object.fromEntries(BACKGROUNDS.map((b) => [b.id, b]));
   var VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v)(\?|$)/i;
   function resolveBackground(bg) {
-    var _a3;
+    var _a2;
     if (!bg) return { kind: "image", url: "" };
     if (typeof bg === "string") {
       const preset = BACKGROUND_BY_ID[bg];
@@ -192,7 +225,7 @@
       return { kind: VIDEO_EXT_RE.test(bg) ? "video" : "image", url: bg };
     }
     if (typeof bg !== "object") return { kind: "image", url: "" };
-    const url = (_a3 = bg.url) != null ? _a3 : "";
+    const url = (_a2 = bg.url) != null ? _a2 : "";
     const kind = bg.kind === "video" || VIDEO_EXT_RE.test(url) ? "video" : "image";
     return { kind, url };
   }
@@ -208,8 +241,8 @@
     return v.toFixed(1);
   }
   function readTheme() {
-    var _a3;
-    const cs = (_a3 = globalThis.getComputedStyle) == null ? void 0 : _a3.call(globalThis, document.documentElement);
+    var _a2;
+    const cs = (_a2 = globalThis.getComputedStyle) == null ? void 0 : _a2.call(globalThis, document.documentElement);
     return {
       panel: (cs == null ? void 0 : cs.getPropertyValue("--gauge-panel").trim()) || "#0f1421",
       track: (cs == null ? void 0 : cs.getPropertyValue("--gauge-track").trim()) || "#1f2a44",
@@ -398,11 +431,11 @@
     ring: paintRing
   };
   function paintStyled(ctx, rect, slot, signals, isHero = false) {
-    var _a3;
+    var _a2;
     const widget = WIDGET_BY_ID[slot == null ? void 0 : slot.widgetId];
     if (!widget) return;
     const data = widget.read(signals);
-    const styleFn = (_a3 = STYLE_FNS[slot.style]) != null ? _a3 : paintDial;
+    const styleFn = (_a2 = STYLE_FNS[slot.style]) != null ? _a2 : paintDial;
     styleFn(ctx, rect, data, colorHex(slot.color), isHero);
   }
   function normalizeSlot(raw, themeId, slotIndex = 0) {
@@ -438,13 +471,13 @@
     };
   }
   function defaultAccent(themeId) {
-    var _a3, _b2;
-    return (_b2 = (_a3 = THEME_BY_ID[themeId]) == null ? void 0 : _a3.defaultAccent) != null ? _b2 : "cyan";
+    var _a2, _b;
+    return (_b = (_a2 = THEME_BY_ID[themeId]) == null ? void 0 : _a2.defaultAccent) != null ? _b : "cyan";
   }
   function signalsForLayout(layout) {
-    var _a3;
+    var _a2;
     const names = /* @__PURE__ */ new Set();
-    for (const slot of (_a3 = layout == null ? void 0 : layout.slots) != null ? _a3 : []) {
+    for (const slot of (_a2 = layout == null ? void 0 : layout.slots) != null ? _a2 : []) {
       if (!(slot == null ? void 0 : slot.widgetId)) continue;
       const w = WIDGET_BY_ID[slot.widgetId];
       if (!w) continue;
@@ -521,14 +554,14 @@
     }
   };
   function applyTheme(themeId) {
-    var _a3;
-    const theme = (_a3 = THEME_BY_ID[themeId]) != null ? _a3 : THEMES[0];
+    var _a2;
+    const theme = (_a2 = THEME_BY_ID[themeId]) != null ? _a2 : THEMES[0];
     document.body.dataset.theme = theme.id;
     document.getElementById("theme-name").textContent = theme.label;
     state.layout.theme = theme.id;
   }
   function renderPalette() {
-    var _a3;
+    var _a2;
     const host2 = document.getElementById("widget-grid");
     if (!host2) return;
     host2.innerHTML = "";
@@ -536,7 +569,7 @@
       const tile = document.createElement("div");
       tile.className = "widget-tile";
       tile.dataset.widgetId = w.id;
-      tile.innerHTML = `<span class="glyph">${(_a3 = w.emoji) != null ? _a3 : w.label[0]}</span><span class="name">${w.label}</span>`;
+      tile.innerHTML = `<span class="glyph">${(_a2 = w.emoji) != null ? _a2 : w.label[0]}</span><span class="name">${w.label}</span>`;
       tile.addEventListener("click", () => {
         if (selectedWidgetId === w.id) {
           clearSelection();
@@ -635,7 +668,7 @@
     reconcileSubscription();
   }
   function paintAllSlots() {
-    var _a3, _b2;
+    var _a2, _b;
     for (const el of slotEls()) {
       const idx = parseInt(el.dataset.slot, 10);
       const slot = state.layout.slots[idx];
@@ -644,8 +677,8 @@
       el.classList.toggle("filled", !!slot);
       empty.style.display = slot ? "none" : "";
       if (idx !== HERO_INDEX) {
-        el.dataset.pos = (_a3 = slot == null ? void 0 : slot.position) != null ? _a3 : defaultPosition(idx);
-        el.dataset.size = (_b2 = slot == null ? void 0 : slot.size) != null ? _b2 : "M";
+        el.dataset.pos = (_a2 = slot == null ? void 0 : slot.position) != null ? _a2 : defaultPosition(idx);
+        el.dataset.size = (_b = slot == null ? void 0 : slot.size) != null ? _b : "M";
       }
       if (!slot) {
         clearCanvas(canvas);
@@ -666,7 +699,7 @@
     }
   }
   function applyHeroBackground() {
-    var _a3, _b2;
+    var _a2, _b;
     const host2 = document.getElementById("hero-bg");
     if (!host2) return;
     const slot = state.layout.slots[HERO_INDEX];
@@ -676,8 +709,8 @@
       return;
     }
     const existing = host2.firstElementChild;
-    const sameKind = ((_a3 = existing == null ? void 0 : existing.tagName) == null ? void 0 : _a3.toLowerCase()) === kind;
-    const sameUrl = ((_b2 = existing == null ? void 0 : existing.dataset) == null ? void 0 : _b2.url) === url;
+    const sameKind = ((_a2 = existing == null ? void 0 : existing.tagName) == null ? void 0 : _a2.toLowerCase()) === kind;
+    const sameUrl = ((_b = existing == null ? void 0 : existing.dataset) == null ? void 0 : _b.url) === url;
     if (sameKind && sameUrl) return;
     host2.innerHTML = "";
     if (kind === "video") {
@@ -726,7 +759,7 @@
     ctx.restore();
   }
   function renderSlotChips() {
-    var _a3, _b2, _c, _d;
+    var _a2, _b, _c, _d;
     const host2 = document.getElementById("slot-chips");
     if (!host2) return;
     host2.innerHTML = "";
@@ -740,8 +773,8 @@
         const s = STYLES.find((x) => x.id === slot.style);
         chip.innerHTML = `
         <span class="label">${label}</span>
-        <span class="em">${(_a3 = w == null ? void 0 : w.emoji) != null ? _a3 : "\u2022"}</span>
-        <span class="desc">${(_b2 = w == null ? void 0 : w.label) != null ? _b2 : slot.widgetId} \xB7 ${(_c = s == null ? void 0 : s.emoji) != null ? _c : ""} ${(_d = s == null ? void 0 : s.label) != null ? _d : slot.style}</span>
+        <span class="em">${(_a2 = w == null ? void 0 : w.emoji) != null ? _a2 : "\u2022"}</span>
+        <span class="desc">${(_b = w == null ? void 0 : w.label) != null ? _b : slot.widgetId} \xB7 ${(_c = s == null ? void 0 : s.emoji) != null ? _c : ""} ${(_d = s == null ? void 0 : s.label) != null ? _d : slot.style}</span>
         <span class="swatch-mini" style="background:${colorHex(slot.color)}"></span>
         <button class="x" data-clear-tool="${i}" title="Clear slot">\xD7</button>
       `;
@@ -762,7 +795,7 @@
     }
   }
   function bindToolsEvents() {
-    var _a3, _b2;
+    var _a2, _b;
     document.addEventListener("click", (e) => {
       const t = e.target.closest("[data-clear-tool]");
       if (t) {
@@ -770,12 +803,12 @@
         setSlot(parseInt(t.dataset.clearTool, 10), null);
       }
     });
-    (_a3 = document.getElementById("quick-actions")) == null ? void 0 : _a3.addEventListener("click", (e) => {
+    (_a2 = document.getElementById("quick-actions")) == null ? void 0 : _a2.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-action]");
       if (!btn) return;
       runQuickAction(btn.dataset.action);
     });
-    (_b2 = document.getElementById("presets")) == null ? void 0 : _b2.addEventListener("click", (e) => {
+    (_b = document.getElementById("presets")) == null ? void 0 : _b.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-preset]");
       if (!btn) return;
       loadPreset(btn.dataset.preset);
@@ -819,11 +852,11 @@
     reconcileSubscription();
   }
   function openSlotSheet(idx) {
-    var _a3;
+    var _a2;
     const slot = state.layout.slots[idx];
     if (!slot) return;
     const w = WIDGET_BY_ID[slot.widgetId];
-    document.getElementById("slot-sheet-title").textContent = `Customize \xB7 ${(_a3 = w == null ? void 0 : w.label) != null ? _a3 : "slot"}`;
+    document.getElementById("slot-sheet-title").textContent = `Customize \xB7 ${(_a2 = w == null ? void 0 : w.label) != null ? _a2 : "slot"}`;
     document.getElementById("slot-sheet-sub").textContent = idx === HERO_INDEX ? "Hero slot \u2014 fills the cluster face." : "Overlay slot.";
     renderStyleChips(slot.style);
     renderColorSwatches(slot.color);
@@ -884,7 +917,7 @@
     }
   }
   function renderBackgroundChips(active) {
-    var _a3;
+    var _a2;
     const host2 = document.getElementById("bg-chips");
     host2.innerHTML = "";
     const activeId = typeof active === "string" && BACKGROUND_BY_ID[active] ? active : null;
@@ -893,7 +926,7 @@
     for (const b of BACKGROUNDS) {
       const chip = document.createElement("div");
       chip.className = "chip" + (b.id === activeId ? " active" : "");
-      chip.textContent = `${(_a3 = b.emoji) != null ? _a3 : ""} ${b.label}`.trim();
+      chip.textContent = `${(_a2 = b.emoji) != null ? _a2 : ""} ${b.label}`.trim();
       chip.addEventListener("click", () => {
         if (editingSlot == null) return;
         const slot = state.layout.slots[editingSlot];
@@ -912,8 +945,8 @@
     upload.className = "chip" + (isCustomUpload ? " active" : "");
     upload.textContent = isCustomUpload ? "\u{1F4C1} Upload \u2713" : "\u{1F4C1} Upload\u2026";
     upload.addEventListener("click", () => {
-      var _a4;
-      (_a4 = document.getElementById("bg-file")) == null ? void 0 : _a4.click();
+      var _a3;
+      (_a3 = document.getElementById("bg-file")) == null ? void 0 : _a3.click();
     });
     host2.appendChild(upload);
     const input = document.getElementById("bg-url");
@@ -946,8 +979,8 @@
     return `${u.slice(0, 40)}\u2026${u.slice(-12)}`;
   }
   async function uploadBgFromFile(file) {
-    var _a3, _b2;
-    if (!file || !((_a3 = file.type) == null ? void 0 : _a3.startsWith("image/"))) {
+    var _a2, _b;
+    if (!file || !((_a2 = file.type) == null ? void 0 : _a2.startsWith("image/"))) {
       setBgStatus("Only image files are supported via upload.");
       return;
     }
@@ -976,7 +1009,7 @@
       renderBackgroundChips(slot.background);
     } catch (err) {
       console.error("uploadBgFromFile failed", err);
-      setBgStatus(`Upload failed: ${(_b2 = err == null ? void 0 : err.message) != null ? _b2 : err}`);
+      setBgStatus(`Upload failed: ${(_b = err == null ? void 0 : err.message) != null ? _b : err}`);
     }
   }
   function drawCenterCropped(ctx, img, w, h) {
@@ -997,8 +1030,8 @@
       const r = new FileReader();
       r.onload = () => resolve(r.result);
       r.onerror = () => {
-        var _a3;
-        return reject((_a3 = r.error) != null ? _a3 : new Error("read_failed"));
+        var _a2;
+        return reject((_a2 = r.error) != null ? _a2 : new Error("read_failed"));
       };
       r.readAsDataURL(file);
     });
@@ -1025,13 +1058,13 @@
     renderBackgroundChips(slot.background);
   }
   function renderStyleChips(activeId) {
-    var _a3;
+    var _a2;
     const host2 = document.getElementById("style-chips");
     host2.innerHTML = "";
     for (const s of STYLES) {
       const chip = document.createElement("div");
       chip.className = "chip" + (s.id === activeId ? " active" : "");
-      chip.textContent = `${(_a3 = s.emoji) != null ? _a3 : ""} ${s.label}`.trim();
+      chip.textContent = `${(_a2 = s.emoji) != null ? _a2 : ""} ${s.label}`.trim();
       chip.addEventListener("click", () => {
         if (editingSlot == null) return;
         const slot = state.layout.slots[editingSlot];
@@ -1065,14 +1098,14 @@
     }
   }
   function openThemeSheet() {
-    var _a3;
+    var _a2;
     const host2 = document.getElementById("theme-tiles");
     host2.innerHTML = "";
     for (const t of THEMES) {
       const tile = document.createElement("div");
       tile.className = "theme-tile" + (t.id === state.layout.theme ? " active" : "");
       tile.innerHTML = `
-      <div class="name"><span class="em">${(_a3 = t.emoji) != null ? _a3 : "\u2728"}</span> ${t.label}</div>
+      <div class="name"><span class="em">${(_a2 = t.emoji) != null ? _a2 : "\u2728"}</span> ${t.label}</div>
       <div class="desc">${t.desc}</div>
       <div class="preview" data-theme-preview="${t.id}"></div>
     `;
@@ -1091,7 +1124,7 @@
     showSheet("theme-sheet");
   }
   function paintThemePreview(node, themeId) {
-    var _a3;
+    var _a2;
     const probe = document.createElement("div");
     probe.setAttribute("data-theme", themeId);
     probe.style.cssText = "position:absolute; visibility:hidden; pointer-events:none;";
@@ -1104,7 +1137,7 @@
       sunset: "radial-gradient(circle at 20% 30%, #f97316 0%, transparent 55%), radial-gradient(circle at 80% 60%, #ec4899 0%, transparent 55%), #2d0e1a",
       y2k: "radial-gradient(circle at 25% 30%, #c084fc 0%, transparent 55%), radial-gradient(circle at 75% 70%, #67e8f9 0%, transparent 55%), #1a0f2e"
     };
-    node.style.background = (_a3 = previews[themeId]) != null ? _a3 : previews.stealth;
+    node.style.background = (_a2 = previews[themeId]) != null ? _a2 : previews.stealth;
   }
   function showSheet(id) {
     hideSheets();
@@ -1112,10 +1145,10 @@
     document.getElementById(id).classList.add("shown");
   }
   function hideSheets() {
-    var _a3;
+    var _a2;
     document.getElementById("sheet-scrim").classList.remove("shown");
     for (const id of ["widgets-sheet", "tools-sheet", "more-sheet", "slot-sheet", "theme-sheet"]) {
-      (_a3 = document.getElementById(id)) == null ? void 0 : _a3.classList.remove("shown");
+      (_a2 = document.getElementById(id)) == null ? void 0 : _a2.classList.remove("shown");
     }
     editingSlot = null;
   }
@@ -1144,12 +1177,12 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
   function load() {
-    var _a3;
+    var _a2;
     try {
       const raw = localStorage.getItem(STORAGE_KEY(state.deviceId));
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      const themeId = (_a3 = parsed.theme) != null ? _a3 : state.layout.theme;
+      const themeId = (_a2 = parsed.theme) != null ? _a2 : state.layout.theme;
       applyTheme(themeId);
       const slotsIn = Array.isArray(parsed.slots) ? parsed.slots : [];
       state.layout.slots = new Array(SLOT_COUNT).fill(null).map(
@@ -1173,7 +1206,7 @@
   var CLUSTER_PIXEL_CAPS = ["surface.write.cluster", "pkg.launch.cluster.pixel"];
   var DRIVER_LABEL = "Driver";
   async function detectCapabilities() {
-    var _a3, _b2, _c;
+    var _a2, _b, _c;
     const attempts = [];
     let snapshot = null;
     try {
@@ -1181,7 +1214,7 @@
       attempts.push({ shape: "envelope {params,idempotencyKey}", response: summarize(raw) });
       if (Array.isArray(raw == null ? void 0 : raw.displays)) snapshot = raw;
     } catch (err) {
-      attempts.push({ shape: "envelope {params,idempotencyKey}", error: String((_a3 = err == null ? void 0 : err.message) != null ? _a3 : err) });
+      attempts.push({ shape: "envelope {params,idempotencyKey}", error: String((_a2 = err == null ? void 0 : err.message) != null ? _a2 : err) });
     }
     state.debug.displayListAttempts = attempts;
     state.debug.snapshot = snapshot;
@@ -1191,7 +1224,7 @@
       setCapBlocked("display.list unavailable on this host \u2014 see debug pane.");
       return;
     }
-    const displays = (_b2 = snapshot.displays) != null ? _b2 : [];
+    const displays = (_b = snapshot.displays) != null ? _b : [];
     const vehicle = (_c = snapshot.vehicle) != null ? _c : null;
     const trim = document.getElementById("trim-badge");
     if (vehicle == null ? void 0 : vehicle.friendlyName) {
@@ -1221,15 +1254,15 @@
     refreshPushButton();
   }
   function resolveDriverTarget(displays, vehicle) {
-    var _a3, _b2, _c;
-    const caps = (_a3 = vehicle == null ? void 0 : vehicle.capabilities) != null ? _a3 : [];
+    var _a2, _b, _c;
+    const caps = (_a2 = vehicle == null ? void 0 : vehicle.capabilities) != null ? _a2 : [];
     const legacyMode = caps.length === 0;
-    const cluster = (_b2 = displays.find(
+    const cluster = (_b = displays.find(
       (d) => {
-        var _a4;
-        return (d.role === "cluster" || d.isCluster) && FRIENDLY_CLUSTER_RE.test((_a4 = d.name) != null ? _a4 : "");
+        var _a3;
+        return (d.role === "cluster" || d.isCluster) && FRIENDLY_CLUSTER_RE.test((_a3 = d.name) != null ? _a3 : "");
       }
-    )) != null ? _b2 : displays.find((d) => d.role === "cluster" || d.isCluster);
+    )) != null ? _b : displays.find((d) => d.role === "cluster" || d.isCluster);
     if (cluster) {
       const hasPixelCap = CLUSTER_PIXEL_CAPS.some((c) => caps.includes(c));
       if (legacyMode || hasPixelCap) {
@@ -1280,15 +1313,15 @@
     out.textContent = lines.join("\n");
   }
   function refreshPushButton() {
-    var _a3;
+    var _a2;
     const btn = document.getElementById("push");
     const filled = state.layout.slots.filter(Boolean).length;
     btn.disabled = !state.canPushToCluster || filled === 0;
     btn.textContent = state.driverTargetKind === "driver-panel" ? "Push to driver panel" : "Push to cluster";
-    btn.title = !state.canPushToCluster ? (_a3 = state.blockedReason) != null ? _a3 : "Push unavailable on this trim" : filled === 0 ? "Place at least one widget first" : "Send current layout to the driver display";
+    btn.title = !state.canPushToCluster ? (_a2 = state.blockedReason) != null ? _a2 : "Push unavailable on this trim" : filled === 0 ? "Place at least one widget first" : "Send current layout to the driver display";
   }
   async function push() {
-    var _a3, _b2;
+    var _a2, _b;
     if (!state.canPushToCluster || state.driverTargetId == null) return;
     const btn = document.getElementById("push");
     btn.disabled = true;
@@ -1307,11 +1340,11 @@
         displayId: state.driverTargetId,
         route: `/cluster.html?layout=${payload}`
       });
-      state.surfaceId = (_a3 = r == null ? void 0 : r.surfaceId) != null ? _a3 : null;
+      state.surfaceId = (_a2 = r == null ? void 0 : r.surfaceId) != null ? _a2 : null;
       const targetLabel = state.driverTargetKind === "driver-panel" ? "driver panel" : "cluster";
       document.getElementById("layout-saved").textContent = `pushed \xB7 ${state.layout.slots.filter(Boolean).length}/${SLOT_COUNT} on ${targetLabel}`;
     } catch (err) {
-      setCapBlocked(`Push failed: ${(_b2 = err == null ? void 0 : err.message) != null ? _b2 : err}`);
+      setCapBlocked(`Push failed: ${(_b = err == null ? void 0 : err.message) != null ? _b : err}`);
       console.error("push failed", err);
     } finally {
       btn.textContent = savedLabel;
@@ -1319,7 +1352,7 @@
     }
   }
   async function reconcileSubscription() {
-    var _a3;
+    var _a2;
     if (!inHost()) return;
     const names = signalsForLayout(state.layout);
     if (names.length === 0) return;
@@ -1330,23 +1363,23 @@
         state.lastUpdateAt = Date.now();
       }
       const result = await call("car.subscribe", { names, idempotencyKey: cryptoUuid() });
-      state.subscriptionId = (_a3 = result == null ? void 0 : result.subscriptionId) != null ? _a3 : null;
+      state.subscriptionId = (_a2 = result == null ? void 0 : result.subscriptionId) != null ? _a2 : null;
     } catch (err) {
       console.warn("car.subscribe failed:", err);
     }
   }
   function bindLiveStreams() {
     on("car.signal", (payload) => {
-      var _a3;
-      const ev = (_a3 = payload == null ? void 0 : payload.data) != null ? _a3 : payload;
+      var _a2;
+      const ev = (_a2 = payload == null ? void 0 : payload.data) != null ? _a2 : payload;
       if (!(ev == null ? void 0 : ev.name)) return;
       if (state.subscriptionId && (payload == null ? void 0 : payload.subscriptionId) && payload.subscriptionId !== state.subscriptionId) return;
       state.signals[ev.name] = ev.value;
       state.lastUpdateAt = Date.now();
     });
     on("car.connection", (payload) => {
-      var _a3;
-      const s = (_a3 = payload == null ? void 0 : payload.state) != null ? _a3 : payload;
+      var _a2;
+      const s = (_a2 = payload == null ? void 0 : payload.state) != null ? _a2 : payload;
       const dot = document.getElementById("conn-dot");
       const text = document.getElementById("conn-text");
       dot.classList.remove("connected", "degraded", "disconnected");
@@ -1355,7 +1388,7 @@
     });
   }
   async function main() {
-    var _a3, _b2, _c, _d, _e, _f, _g, _h, _i;
+    var _a2, _b, _c, _d, _e, _f, _g, _h, _i;
     applyTheme(state.layout.theme);
     renderPalette();
     bindSlotEvents();
@@ -1367,11 +1400,11 @@
     document.querySelectorAll("[data-close-sheet]").forEach(
       (b) => b.addEventListener("click", hideSheets)
     );
-    (_a3 = document.getElementById("more-glowup")) == null ? void 0 : _a3.addEventListener("click", () => {
+    (_a2 = document.getElementById("more-glowup")) == null ? void 0 : _a2.addEventListener("click", () => {
       hideSheets();
       surpriseMe();
     });
-    (_b2 = document.getElementById("more-reset")) == null ? void 0 : _b2.addEventListener("click", () => {
+    (_b = document.getElementById("more-reset")) == null ? void 0 : _b.addEventListener("click", () => {
       hideSheets();
       resetLayout();
     });
@@ -1384,8 +1417,8 @@
     const fileInput = document.getElementById("bg-file");
     if (fileInput) {
       fileInput.addEventListener("change", () => {
-        var _a4;
-        const f = (_a4 = fileInput.files) == null ? void 0 : _a4[0];
+        var _a3;
+        const f = (_a3 = fileInput.files) == null ? void 0 : _a3[0];
         fileInput.value = "";
         if (f) uploadBgFromFile(f);
       });

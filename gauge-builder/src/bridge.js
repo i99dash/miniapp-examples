@@ -8,11 +8,74 @@
  * folder with no build step.
  */
 
-export const host =
-  globalThis.flutter_inappwebview ?? globalThis.__i99dashHost ?? null;
+// Safe global (some BYD ROM WebViews predate ES2020 `globalThis`;
+// esbuild es2019 down-levels syntax but not this identifier).
+const G =
+  typeof globalThis !== 'undefined'
+    ? globalThis
+    : typeof window !== 'undefined'
+      ? window
+      : typeof self !== 'undefined'
+        ? self
+        : {};
 
+// Prefer the branded `__i99dashHost`, fall back to the plugin's
+// transport global, accept only a candidate that exposes
+// `callHandler`.
+function resolveHost() {
+  const branded = G.__i99dashHost;
+  if (branded && typeof branded.callHandler === 'function') return branded;
+  const legacy = G.flutter_inappwebview;
+  if (legacy && typeof legacy.callHandler === 'function') return legacy;
+  return null;
+}
+
+// Eager best-effort snapshot — kept for back-compat. PREFER
+// `whenHostReady()` / live `inHost()`: `flutter_inappwebview`'s
+// `callHandler` is NOT guaranteed wired at initial sync script
+// execution (the plugin signals readiness via the
+// `flutterInAppWebViewPlatformReady` window event). Resolving once
+// eagerly loses that race on slower WebViews (DiLink 5.0) → every
+// value "—"; a faster WebView (L8) wins it. `call`/`callNative`
+// below await readiness so all callers are race-safe with no
+// entrypoint changes.
+export const host = resolveHost();
+
+/** Live presence check — re-resolves (host may arrive after load). */
 export function inHost() {
-  return host != null;
+  return resolveHost() != null;
+}
+
+/**
+ * Resolve the host bridge, waiting if it isn't ready yet. Resolves
+ * immediately when already present (fast path, no overhead);
+ * otherwise on the `flutterInAppWebViewPlatformReady` event AND a
+ * 150 ms poll, capped by [timeoutMs] (then `null` = genuinely not
+ * in a host).
+ */
+export function whenHostReady(timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    const now = resolveHost();
+    if (now) return resolve(now);
+    const w = typeof window !== 'undefined' ? window : null;
+    let settled = false;
+    const finish = (h) => {
+      if (settled) return;
+      settled = true;
+      if (w) w.removeEventListener('flutterInAppWebViewPlatformReady', onReady);
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(h);
+    };
+    const tryNow = () => {
+      const h = resolveHost();
+      if (h) finish(h);
+    };
+    const onReady = () => tryNow();
+    if (w) w.addEventListener('flutterInAppWebViewPlatformReady', onReady);
+    const poll = setInterval(tryNow, 150);
+    const timer = setTimeout(() => finish(resolveHost()), timeoutMs);
+  });
 }
 
 /**
@@ -23,8 +86,9 @@ export function inHost() {
  * `gauge-cluster` consumes the same handlers.
  */
 export async function call(handler, payload = {}) {
-  if (!host) throw new Error('not_inside_host');
-  return host.callHandler(handler, payload);
+  const h = await whenHostReady(); // race-safe; instant if already ready
+  if (!h) throw new Error('not_inside_host');
+  return h.callHandler(handler, payload);
 }
 
 /**
@@ -41,8 +105,9 @@ export async function call(handler, payload = {}) {
  * empty cluster preview even on a Leopard 8 with all displays present.
  */
 export async function callNative(handler, params = {}) {
-  if (!host) throw new Error('not_inside_host');
-  const raw = await host.callHandler(handler, {
+  const h = await whenHostReady(); // race-safe; instant if already ready
+  if (!h) throw new Error('not_inside_host');
+  const raw = await h.callHandler(handler, {
     params,
     idempotencyKey: cryptoUuid(),
   });
@@ -56,8 +121,8 @@ export async function callNative(handler, params = {}) {
 // Host events fan-out. Created once and reused — the host dispatches
 // pushes via `globalThis.__i99dashEvents.dispatch(channel, payload)`.
 const events =
-  globalThis.__i99dashEvents ??
-  (globalThis.__i99dashEvents = {
+  G.__i99dashEvents ??
+  (G.__i99dashEvents = {
     _handlers: Object.create(null),
     on(channel, fn) {
       (this._handlers[channel] ??= new Set()).add(fn);
@@ -89,8 +154,8 @@ export function on(channel, fn) {
 }
 
 export function cryptoUuid() {
-  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
+  if (G.crypto && typeof G.crypto.randomUUID === 'function') {
+    return G.crypto.randomUUID();
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;

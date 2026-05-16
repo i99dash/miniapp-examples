@@ -1,20 +1,52 @@
 (() => {
   // src/bridge.js
-  var _a, _b;
-  var host = (_b = (_a = globalThis.flutter_inappwebview) != null ? _a : globalThis.__i99dashHost) != null ? _b : null;
+  var G = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
+  function resolveHost() {
+    const branded = G.__i99dashHost;
+    if (branded && typeof branded.callHandler === "function") return branded;
+    const legacy = G.flutter_inappwebview;
+    if (legacy && typeof legacy.callHandler === "function") return legacy;
+    return null;
+  }
+  var host = resolveHost();
   function inHost() {
-    return host != null;
+    return resolveHost() != null;
+  }
+  function whenHostReady(timeoutMs = 8e3) {
+    return new Promise((resolve) => {
+      const now = resolveHost();
+      if (now) return resolve(now);
+      const w = typeof window !== "undefined" ? window : null;
+      let settled = false;
+      const finish = (h) => {
+        if (settled) return;
+        settled = true;
+        if (w) w.removeEventListener("flutterInAppWebViewPlatformReady", onReady);
+        clearInterval(poll);
+        clearTimeout(timer);
+        resolve(h);
+      };
+      const tryNow = () => {
+        const h = resolveHost();
+        if (h) finish(h);
+      };
+      const onReady = () => tryNow();
+      if (w) w.addEventListener("flutterInAppWebViewPlatformReady", onReady);
+      const poll = setInterval(tryNow, 150);
+      const timer = setTimeout(() => finish(resolveHost()), timeoutMs);
+    });
   }
   async function call(handler, payload = {}) {
-    if (!host) throw new Error("not_inside_host");
-    return host.callHandler(handler, payload);
+    const h = await whenHostReady();
+    if (!h) throw new Error("not_inside_host");
+    return h.callHandler(handler, payload);
   }
-  var _a2;
-  var events = (_a2 = globalThis.__i99dashEvents) != null ? _a2 : globalThis.__i99dashEvents = {
+  var _a;
+  var events = (_a = G.__i99dashEvents) != null ? _a : G.__i99dashEvents = {
     _handlers: /* @__PURE__ */ Object.create(null),
     on(channel, fn) {
-      var _a3, _b2;
-      ((_b2 = (_a3 = this._handlers)[channel]) != null ? _b2 : _a3[channel] = /* @__PURE__ */ new Set()).add(fn);
+      var _a2, _b;
+      ((_b = (_a2 = this._handlers)[channel]) != null ? _b : _a2[channel] = /* @__PURE__ */ new Set()).add(fn);
       return () => this._handlers[channel].delete(fn);
     },
     dispatch(channel, payload) {
@@ -40,8 +72,8 @@
     return events.on(channel, fn);
   }
   function cryptoUuid() {
-    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
-      return globalThis.crypto.randomUUID();
+    if (G.crypto && typeof G.crypto.randomUUID === "function") {
+      return G.crypto.randomUUID();
     }
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
@@ -62,8 +94,8 @@
   ];
   var COLOR_BY_ID = Object.fromEntries(COLORS.map((c) => [c.id, c.hex]));
   function colorHex(id) {
-    var _a3;
-    return (_a3 = COLOR_BY_ID[id]) != null ? _a3 : COLOR_BY_ID.cyan;
+    var _a2;
+    return (_a2 = COLOR_BY_ID[id]) != null ? _a2 : COLOR_BY_ID.cyan;
   }
   var THEMES = [
     { id: "stealth", label: "Stealth", emoji: "\u{1F311}", desc: "Pure dark, ultra-clean", defaultAccent: "cyan" },
@@ -82,8 +114,8 @@
       emoji: "\u{1F4A8}",
       signals: ["speed_kmh"],
       read(signals) {
-        var _a3;
-        return { value: (_a3 = signals.speed_kmh) != null ? _a3 : 0, label: "Speed", unit: "km/h", max: 180, min: 0 };
+        var _a2;
+        return { value: (_a2 = signals.speed_kmh) != null ? _a2 : 0, label: "Speed", unit: "km/h", max: 180, min: 0 };
       }
     },
     {
@@ -92,8 +124,8 @@
       emoji: "\u26A1",
       signals: ["motor_f_rpm", "motor_r_rpm", "engine_rpm"],
       read(s) {
-        var _a3, _b2, _c;
-        const v = s.motor_f_rpm != null || s.motor_r_rpm != null ? Math.max((_a3 = s.motor_f_rpm) != null ? _a3 : 0, (_b2 = s.motor_r_rpm) != null ? _b2 : 0) : (_c = s.engine_rpm) != null ? _c : 0;
+        var _a2, _b, _c;
+        const v = s.motor_f_rpm != null || s.motor_r_rpm != null ? Math.max((_a2 = s.motor_f_rpm) != null ? _a2 : 0, (_b = s.motor_r_rpm) != null ? _b : 0) : (_c = s.engine_rpm) != null ? _c : 0;
         return { value: v, label: "RPM", unit: "rpm", max: 8e3, min: 0 };
       }
     },
@@ -103,8 +135,8 @@
       emoji: "\u{1F50B}",
       signals: ["battery_pct"],
       read(s) {
-        var _a3;
-        return { value: (_a3 = s.battery_pct) != null ? _a3 : 0, label: "Battery", unit: "%", max: 100, min: 0 };
+        var _a2;
+        return { value: (_a2 = s.battery_pct) != null ? _a2 : 0, label: "Battery", unit: "%", max: 100, min: 0 };
       }
     },
     {
@@ -113,8 +145,8 @@
       emoji: "\u{1F331}",
       signals: ["range_ev_km"],
       read(s) {
-        var _a3;
-        return { value: (_a3 = s.range_ev_km) != null ? _a3 : 0, label: "EV range", unit: "km", max: 600, min: 0 };
+        var _a2;
+        return { value: (_a2 = s.range_ev_km) != null ? _a2 : 0, label: "EV range", unit: "km", max: 600, min: 0 };
       }
     },
     {
@@ -123,8 +155,8 @@
       emoji: "\u26FD",
       signals: ["range_fuel_km"],
       read(s) {
-        var _a3;
-        return { value: (_a3 = s.range_fuel_km) != null ? _a3 : 0, label: "Fuel range", unit: "km", max: 1e3, min: 0 };
+        var _a2;
+        return { value: (_a2 = s.range_fuel_km) != null ? _a2 : 0, label: "Fuel range", unit: "km", max: 1e3, min: 0 };
       }
     },
     {
@@ -133,8 +165,8 @@
       emoji: "\u{1F321}\uFE0F",
       signals: ["ac_cabin_temp"],
       read(s) {
-        var _a3;
-        return { value: (_a3 = s.ac_cabin_temp) != null ? _a3 : 0, label: "Cabin", unit: "\xB0C", max: 40, min: -10 };
+        var _a2;
+        return { value: (_a2 = s.ac_cabin_temp) != null ? _a2 : 0, label: "Cabin", unit: "\xB0C", max: 40, min: -10 };
       }
     }
   ];
@@ -171,7 +203,7 @@
   var BACKGROUND_BY_ID = Object.fromEntries(BACKGROUNDS.map((b) => [b.id, b]));
   var VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v)(\?|$)/i;
   function resolveBackground(bg) {
-    var _a3;
+    var _a2;
     if (!bg) return { kind: "image", url: "" };
     if (typeof bg === "string") {
       const preset = BACKGROUND_BY_ID[bg];
@@ -179,7 +211,7 @@
       return { kind: VIDEO_EXT_RE.test(bg) ? "video" : "image", url: bg };
     }
     if (typeof bg !== "object") return { kind: "image", url: "" };
-    const url = (_a3 = bg.url) != null ? _a3 : "";
+    const url = (_a2 = bg.url) != null ? _a2 : "";
     const kind = bg.kind === "video" || VIDEO_EXT_RE.test(url) ? "video" : "image";
     return { kind, url };
   }
@@ -195,8 +227,8 @@
     return v.toFixed(1);
   }
   function readTheme() {
-    var _a3;
-    const cs = (_a3 = globalThis.getComputedStyle) == null ? void 0 : _a3.call(globalThis, document.documentElement);
+    var _a2;
+    const cs = (_a2 = globalThis.getComputedStyle) == null ? void 0 : _a2.call(globalThis, document.documentElement);
     return {
       panel: (cs == null ? void 0 : cs.getPropertyValue("--gauge-panel").trim()) || "#0f1421",
       track: (cs == null ? void 0 : cs.getPropertyValue("--gauge-track").trim()) || "#1f2a44",
@@ -385,11 +417,11 @@
     ring: paintRing
   };
   function paintStyled(ctx, rect, slot, signals, isHero = false) {
-    var _a3;
+    var _a2;
     const widget = WIDGET_BY_ID[slot == null ? void 0 : slot.widgetId];
     if (!widget) return;
     const data = widget.read(signals);
-    const styleFn = (_a3 = STYLE_FNS[slot.style]) != null ? _a3 : paintDial;
+    const styleFn = (_a2 = STYLE_FNS[slot.style]) != null ? _a2 : paintDial;
     styleFn(ctx, rect, data, colorHex(slot.color), isHero);
   }
   function normalizeSlot(raw, themeId, slotIndex = 0) {
@@ -425,13 +457,13 @@
     };
   }
   function defaultAccent(themeId) {
-    var _a3, _b2;
-    return (_b2 = (_a3 = THEME_BY_ID[themeId]) == null ? void 0 : _a3.defaultAccent) != null ? _b2 : "cyan";
+    var _a2, _b;
+    return (_b = (_a2 = THEME_BY_ID[themeId]) == null ? void 0 : _a2.defaultAccent) != null ? _b : "cyan";
   }
   function signalsForLayout(layout) {
-    var _a3;
+    var _a2;
     const names = /* @__PURE__ */ new Set();
-    for (const slot of (_a3 = layout == null ? void 0 : layout.slots) != null ? _a3 : []) {
+    for (const slot of (_a2 = layout == null ? void 0 : layout.slots) != null ? _a2 : []) {
       if (!(slot == null ? void 0 : slot.widgetId)) continue;
       const w = WIDGET_BY_ID[slot.widgetId];
       if (!w) continue;
@@ -476,15 +508,15 @@
     return [...document.querySelectorAll(".slot")];
   }
   function paintAllSlots() {
-    var _a3, _b2;
+    var _a2, _b;
     for (const el of slotEls()) {
       const idx = parseInt(el.dataset.slot, 10);
       const slot = state.layout.slots[idx];
       const canvas = el.querySelector("canvas");
       const empty = el.querySelector(".empty");
       if (idx !== HERO_INDEX) {
-        el.dataset.pos = (_a3 = slot == null ? void 0 : slot.position) != null ? _a3 : idx === 2 ? "br" : "bl";
-        el.dataset.size = (_b2 = slot == null ? void 0 : slot.size) != null ? _b2 : "M";
+        el.dataset.pos = (_a2 = slot == null ? void 0 : slot.position) != null ? _a2 : idx === 2 ? "br" : "bl";
+        el.dataset.size = (_b = slot == null ? void 0 : slot.size) != null ? _b : "M";
       }
       if (!slot) {
         empty.style.display = "";
@@ -497,7 +529,7 @@
     applyHeroBackground();
   }
   function applyHeroBackground() {
-    var _a3, _b2;
+    var _a2, _b;
     const host2 = document.getElementById("hero-bg");
     if (!host2) return;
     const slot = state.layout.slots[HERO_INDEX];
@@ -507,7 +539,7 @@
       return;
     }
     const existing = host2.firstElementChild;
-    if (((_a3 = existing == null ? void 0 : existing.tagName) == null ? void 0 : _a3.toLowerCase()) === kind && ((_b2 = existing == null ? void 0 : existing.dataset) == null ? void 0 : _b2.url) === url) return;
+    if (((_a2 = existing == null ? void 0 : existing.tagName) == null ? void 0 : _a2.toLowerCase()) === kind && ((_b = existing == null ? void 0 : existing.dataset) == null ? void 0 : _b.url) === url) return;
     host2.innerHTML = "";
     if (kind === "video") {
       const v = document.createElement("video");
@@ -549,7 +581,7 @@
     ctx.restore();
   }
   async function subscribe() {
-    var _a3;
+    var _a2;
     if (!inHost()) return;
     const names = signalsForLayout(state.layout);
     if (names.length === 0) return;
@@ -560,23 +592,23 @@
         state.lastUpdateAt = Date.now();
       }
       const result = await call("car.subscribe", { names, idempotencyKey: cryptoUuid() });
-      state.subscriptionId = (_a3 = result == null ? void 0 : result.subscriptionId) != null ? _a3 : null;
+      state.subscriptionId = (_a2 = result == null ? void 0 : result.subscriptionId) != null ? _a2 : null;
     } catch (err) {
       console.warn("cluster car.subscribe failed:", err);
     }
   }
   function bindLiveStreams() {
     on("car.signal", (payload) => {
-      var _a3;
-      const ev = (_a3 = payload == null ? void 0 : payload.data) != null ? _a3 : payload;
+      var _a2;
+      const ev = (_a2 = payload == null ? void 0 : payload.data) != null ? _a2 : payload;
       if (!(ev == null ? void 0 : ev.name)) return;
       if (state.subscriptionId && (payload == null ? void 0 : payload.subscriptionId) && payload.subscriptionId !== state.subscriptionId) return;
       state.signals[ev.name] = ev.value;
       state.lastUpdateAt = Date.now();
     });
     on("car.connection", (payload) => {
-      var _a3;
-      const s = (_a3 = payload == null ? void 0 : payload.state) != null ? _a3 : payload;
+      var _a2;
+      const s = (_a2 = payload == null ? void 0 : payload.state) != null ? _a2 : payload;
       const dot = document.getElementById("conn-dot");
       const text = document.getElementById("conn-text");
       dot.classList.remove("connected", "degraded", "disconnected");

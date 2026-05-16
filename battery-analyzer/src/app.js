@@ -11,9 +11,78 @@
  * surface stays as "—". Signals are pure reads; no writes.
  */
 
-const host = globalThis.flutter_inappwebview ?? globalThis.__i99dashHost;
-if (!host) {
-  document.getElementById('notice').classList.add('shown');
+// ── Safe global ─────────────────────────────────────────────────
+// Defensive: most DiLink WebViews are modern (the L5 test unit is
+// Chromium 95, which has `globalThis`), but some older BYD ROM
+// WebViews predate `globalThis` (ES2020) — and esbuild's es2019
+// target down-levels *syntax* (`?.`/`??`) but NOT this global
+// identifier, so a bare `globalThis` would `ReferenceError` there.
+// Resolve a safe global once (in a WebView `window` is always the
+// global). `typeof` on an undeclared name never throws, so this
+// probe is itself safe. Mirrors the `typeof globalThis ===
+// 'undefined'` guard in _shared/l5compat.js. NOTE: this was NOT the
+// cause of the "all —" L5 bug — see resolveHost() below.
+const G =
+  typeof globalThis !== 'undefined'
+    ? globalThis
+    : typeof window !== 'undefined'
+      ? window
+      : typeof self !== 'undefined'
+        ? self
+        : {};
+
+// Host resolution: prefer the branded `__i99dashHost` (car-i99dash
+// injects `window.__i99dashHost = window.flutter_inappwebview` via an
+// AT_DOCUMENT_START user script), fall back to the plugin's
+// transport global, and accept ONLY a candidate that actually
+// exposes `callHandler`.
+function resolveHost() {
+  const branded = G.__i99dashHost;
+  if (branded && typeof branded.callHandler === 'function') return branded;
+  const legacy = G.flutter_inappwebview;
+  if (legacy && typeof legacy.callHandler === 'function') return legacy;
+  return null;
+}
+
+// THE L5 "all —" ROOT CAUSE — a readiness race, NOT a crash or the
+// wrong host object (confirmed on-car: the "Not inside i99dash host"
+// notice was showing, i.e. resolveHost() returned null at script
+// time). `flutter_inappwebview`'s `callHandler` is not guaranteed
+// wired at initial synchronous script execution; the plugin signals
+// readiness via the `flutterInAppWebViewPlatformReady` window event.
+// The old code resolved the host ONCE, eagerly, and immediately
+// bailed to the notice — L8's faster WebView wins that race, the slower
+// DiLink 5.0 loses it (host still null → notice → every value "—").
+//
+// Fix: wait for the host. Resolve immediately if it's already there
+// (L8 path — zero behaviour change); otherwise resolve on the
+// readiness event AND poll as a belt-and-suspenders, capped by a
+// timeout after which we conclude we're genuinely not in a host
+// (e.g. opened in a plain browser) and show the notice.
+let host = resolveHost();
+
+function whenHostReady(timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    const found = resolveHost();
+    if (found) return resolve(found);
+    let settled = false;
+    const finish = (h) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('flutterInAppWebViewPlatformReady', onReady);
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(h);
+    };
+    const tryNow = () => {
+      const h = resolveHost();
+      if (h) finish(h);
+    };
+    const onReady = () => tryNow();
+    window.addEventListener('flutterInAppWebViewPlatformReady', onReady);
+    const poll = setInterval(tryNow, 150);
+    const timer = setTimeout(() => finish(resolveHost()), timeoutMs);
+  });
 }
 
 async function call(handler, payload = {}) {
@@ -21,7 +90,7 @@ async function call(handler, payload = {}) {
   return host.callHandler(handler, payload);
 }
 
-globalThis.__i99dashEvents = globalThis.__i99dashEvents ?? {
+G.__i99dashEvents = G.__i99dashEvents ?? {
   _handlers: Object.create(null),
   on(channel, fn) {
     (this._handlers[channel] ??= new Set()).add(fn);
@@ -111,7 +180,7 @@ async function main() {
     });
 
   // Connection
-  globalThis.__i99dashEvents.on('car.connection', (payload) => {
+  G.__i99dashEvents.on('car.connection', (payload) => {
     const s = payload?.state ?? payload;
     const dot = document.getElementById('conn-dot');
     const text = document.getElementById('conn-text');
@@ -124,7 +193,7 @@ async function main() {
   );
 
   // Subscribe to signal stream
-  globalThis.__i99dashEvents.on('car.signal', (payload) => {
+  G.__i99dashEvents.on('car.signal', (payload) => {
     const ev = payload?.data ?? payload;
     if (!ev?.name) return;
     if (currentSubscriptionId && payload?.subscriptionId && payload.subscriptionId !== currentSubscriptionId) {
@@ -737,8 +806,8 @@ function sanitiseInt(v, min, max) {
 }
 
 function cryptoUuid() {
-  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
+  if (G.crypto && typeof G.crypto.randomUUID === 'function') {
+    return G.crypto.randomUUID();
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -746,6 +815,18 @@ function cryptoUuid() {
   });
 }
 
-main().catch((err) => {
-  console.error('battery-analyzer fatal:', err);
-});
+(async () => {
+  // Wait for the host bridge to actually be ready before concluding
+  // anything (the L5 readiness race — see whenHostReady). Only after
+  // the bounded wait do we show the "not inside a host" notice.
+  host = await whenHostReady();
+  if (!host) {
+    document.getElementById('notice').classList.add('shown');
+    return;
+  }
+  try {
+    await main();
+  } catch (err) {
+    console.error('battery-analyzer fatal:', err);
+  }
+})();

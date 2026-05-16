@@ -1,11 +1,78 @@
       (function () {
+        // ── Safe global ─────────────────────────────────────
+        // Defensive: most DiLink WebViews are modern, but some older
+        // BYD ROM WebViews predate `globalThis` (ES2020) — and
+        // esbuild's es2019 target down-levels *syntax* but NOT this
+        // global identifier, so a bare `globalThis` would
+        // `ReferenceError` there. Resolve a safe global once (in a
+        // WebView `window` is always the global). `typeof` on an
+        // undeclared name never throws, so this probe is itself safe.
+        var G =
+          typeof globalThis !== 'undefined'
+            ? globalThis
+            : typeof window !== 'undefined'
+              ? window
+              : typeof self !== 'undefined'
+                ? self
+                : {};
+
+        // Host resolution: prefer the branded `__i99dashHost`
+        // (car-i99dash injects `window.__i99dashHost =
+        // window.flutter_inappwebview` via an AT_DOCUMENT_START user
+        // script), fall back to the plugin's transport global, and
+        // accept ONLY a candidate that actually exposes `callHandler`.
+        function resolveHost() {
+          var branded = G.__i99dashHost;
+          if (branded && typeof branded.callHandler === 'function') return branded;
+          var legacy = G.flutter_inappwebview;
+          if (legacy && typeof legacy.callHandler === 'function') return legacy;
+          return null;
+        }
+
         // Raw bridge — host injects flutter_inappwebview.callHandler. The
         // typed `i99dash` package wraps the same calls; this example uses
         // raw to keep the bundle a single static file with no build step.
-        var bridge = window.flutter_inappwebview;
-        if (!bridge) {
-          alert('No host bridge — run inside i99dash.');
-          return;
+        //
+        // L5 "—"/no-bridge ROOT CAUSE — a readiness race, NOT a crash:
+        // `flutter_inappwebview`'s `callHandler` is not guaranteed wired
+        // at initial synchronous script execution; the plugin signals
+        // readiness via the `flutterInAppWebViewPlatformReady` window
+        // event. Resolving the host ONCE eagerly and bailing means L8's
+        // faster WebView wins that race while the slower DiLink 5.0
+        // loses it (bridge still null → alert → app never boots). Fix:
+        // wait for the host. Resolve immediately if it's already there
+        // (L8 path — zero behaviour change); otherwise resolve on the
+        // readiness event AND poll as a belt-and-suspenders, capped by a
+        // timeout after which we conclude we're genuinely not in a host.
+        var bridge = resolveHost();
+
+        function whenHostReady(timeoutMs) {
+          if (timeoutMs == null) timeoutMs = 8000;
+          return new Promise(function (resolve) {
+            var found = resolveHost();
+            if (found) return resolve(found);
+            var settled = false;
+            function finish(h) {
+              if (settled) return;
+              settled = true;
+              window.removeEventListener('flutterInAppWebViewPlatformReady', onReady);
+              clearInterval(poll);
+              clearTimeout(timer);
+              resolve(h);
+            }
+            function tryNow() {
+              var h = resolveHost();
+              if (h) finish(h);
+            }
+            function onReady() {
+              tryNow();
+            }
+            window.addEventListener('flutterInAppWebViewPlatformReady', onReady);
+            var poll = setInterval(tryNow, 150);
+            var timer = setTimeout(function () {
+              finish(resolveHost());
+            }, timeoutMs);
+          });
         }
 
         async function call(name, args) {
@@ -596,7 +663,18 @@
         });
 
         // ── Boot ─────────────────────────────────────────────
-        loadDisplays().catch(function (e) {
-          toast('display.list failed: ' + (e && e.message), 'err');
-        });
+        (async function () {
+          // Wait for the host bridge to actually be ready before
+          // concluding anything (the L5 readiness race — see
+          // whenHostReady). Only after the bounded wait do we show the
+          // "no host bridge" notice.
+          bridge = await whenHostReady();
+          if (!bridge) {
+            alert('No host bridge — run inside i99dash.');
+            return;
+          }
+          loadDisplays().catch(function (e) {
+            toast('display.list failed: ' + (e && e.message), 'err');
+          });
+        })();
       })();

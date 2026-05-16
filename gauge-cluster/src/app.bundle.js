@@ -1,20 +1,47 @@
 (() => {
   // src/app.js
-  var _a;
-  var host = (_a = globalThis.flutter_inappwebview) != null ? _a : globalThis.__i99dashHost;
-  if (!host) {
-    document.getElementById("notice").classList.add("shown");
+  var G = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : {};
+  function resolveHost() {
+    const branded = G.__i99dashHost;
+    if (branded && typeof branded.callHandler === "function") return branded;
+    const legacy = G.flutter_inappwebview;
+    if (legacy && typeof legacy.callHandler === "function") return legacy;
+    return null;
+  }
+  var host = resolveHost();
+  function whenHostReady(timeoutMs = 8e3) {
+    return new Promise((resolve) => {
+      const found = resolveHost();
+      if (found) return resolve(found);
+      let settled = false;
+      const finish = (h) => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener("flutterInAppWebViewPlatformReady", onReady);
+        clearInterval(poll);
+        clearTimeout(timer);
+        resolve(h);
+      };
+      const tryNow = () => {
+        const h = resolveHost();
+        if (h) finish(h);
+      };
+      const onReady = () => tryNow();
+      window.addEventListener("flutterInAppWebViewPlatformReady", onReady);
+      const poll = setInterval(tryNow, 150);
+      const timer = setTimeout(() => finish(resolveHost()), timeoutMs);
+    });
   }
   async function call(handler, payload = {}) {
     if (!host) throw new Error("not_inside_host");
     return host.callHandler(handler, payload);
   }
-  var _a2;
-  globalThis.__i99dashEvents = (_a2 = globalThis.__i99dashEvents) != null ? _a2 : {
+  var _a;
+  G.__i99dashEvents = (_a = G.__i99dashEvents) != null ? _a : {
     _handlers: /* @__PURE__ */ Object.create(null),
     on(channel, fn) {
-      var _a3, _b;
-      ((_b = (_a3 = this._handlers)[channel]) != null ? _b : _a3[channel] = /* @__PURE__ */ new Set()).add(fn);
+      var _a2, _b;
+      ((_b = (_a2 = this._handlers)[channel]) != null ? _b : _a2[channel] = /* @__PURE__ */ new Set()).add(fn);
       return () => this._handlers[channel].delete(fn);
     },
     dispatch(channel, payload) {
@@ -72,18 +99,18 @@
   var lastUpdateAt = 0;
   var currentSubscriptionId = null;
   async function main() {
-    var _a3;
+    var _a2;
     if (!host) return;
     call("car.identity").then((id) => {
-      var _a4, _b, _c;
-      const text = `${((_a4 = id == null ? void 0 : id.brand) != null ? _a4 : "unknown").toString().toUpperCase()} \xB7 ${(_c = (_b = id == null ? void 0 : id.modelDisplay) != null ? _b : id == null ? void 0 : id.modelCode) != null ? _c : "\u2014"}`;
+      var _a3, _b, _c;
+      const text = `${((_a3 = id == null ? void 0 : id.brand) != null ? _a3 : "unknown").toString().toUpperCase()} \xB7 ${(_c = (_b = id == null ? void 0 : id.modelDisplay) != null ? _b : id == null ? void 0 : id.modelCode) != null ? _c : "\u2014"}`;
       document.getElementById("brand-badge").textContent = text;
     }).catch(() => {
       document.getElementById("brand-badge").textContent = "identity unavailable";
     });
-    globalThis.__i99dashEvents.on("car.connection", (payload) => {
-      var _a4;
-      const s = (_a4 = payload == null ? void 0 : payload.state) != null ? _a4 : payload;
+    G.__i99dashEvents.on("car.connection", (payload) => {
+      var _a3;
+      const s = (_a3 = payload == null ? void 0 : payload.state) != null ? _a3 : payload;
       const dot = document.getElementById("conn-dot");
       const text = document.getElementById("conn-text");
       dot.classList.remove("connected", "degraded", "disconnected");
@@ -93,9 +120,9 @@
     call("car.connection.subscribe").catch(
       (err) => console.warn("car.connection.subscribe failed:", err)
     );
-    globalThis.__i99dashEvents.on("car.signal", (payload) => {
-      var _a4;
-      const ev = (_a4 = payload == null ? void 0 : payload.data) != null ? _a4 : payload;
+    G.__i99dashEvents.on("car.signal", (payload) => {
+      var _a3;
+      const ev = (_a3 = payload == null ? void 0 : payload.data) != null ? _a3 : payload;
       if (!(ev == null ? void 0 : ev.name)) return;
       if (currentSubscriptionId && (payload == null ? void 0 : payload.subscriptionId) && payload.subscriptionId !== currentSubscriptionId) {
         return;
@@ -117,7 +144,7 @@
         names: SIGNALS,
         idempotencyKey: cryptoUuid()
       });
-      currentSubscriptionId = (_a3 = result == null ? void 0 : result.subscriptionId) != null ? _a3 : null;
+      currentSubscriptionId = (_a2 = result == null ? void 0 : result.subscriptionId) != null ? _a2 : null;
       if (Array.isArray(result == null ? void 0 : result.rejected) && result.rejected.length > 0) {
         console.warn("car.subscribe rejected:", result.rejected);
       }
@@ -128,8 +155,8 @@
   }
   var SMOOTHED = /* @__PURE__ */ Object.create(null);
   function smooth(key, target, alpha = 0.18) {
-    var _a3, _b;
-    if (target == null) return (_a3 = SMOOTHED[key]) != null ? _a3 : 0;
+    var _a2, _b;
+    if (target == null) return (_a2 = SMOOTHED[key]) != null ? _a2 : 0;
     const prev = (_b = SMOOTHED[key]) != null ? _b : target;
     const next = prev + (target - prev) * alpha;
     SMOOTHED[key] = next;
@@ -194,7 +221,7 @@
     return "#ef4444";
   }
   function paintSpeedometer() {
-    var _a3, _b, _c;
+    var _a2, _b, _c;
     const canvas = document.getElementById("speed-gauge");
     const ctx = canvas.getContext("2d");
     const W = canvas.width;
@@ -207,7 +234,7 @@
     const endAngle = Math.PI * 2.2;
     const MAX = 180;
     drawArc(ctx, cx, cy, r, startAngle, endAngle, "#1f2a44", 16);
-    const raw = (_a3 = state.speed_kmh) != null ? _a3 : 0;
+    const raw = (_a2 = state.speed_kmh) != null ? _a2 : 0;
     const val = smooth("speed", raw, 0.22);
     const t = Math.min(Math.max(val / MAX, 0), 1);
     const valEnd = startAngle + (endAngle - startAngle) * t;
@@ -222,7 +249,7 @@
     document.getElementById("brake-bar").style.width = Math.min(brake, 100) + "%";
   }
   function paintTachometer() {
-    var _a3, _b, _c;
+    var _a2, _b, _c;
     const canvas = document.getElementById("rpm-gauge");
     const ctx = canvas.getContext("2d");
     const W = canvas.width;
@@ -233,7 +260,7 @@
     ctx.clearRect(0, 0, W, H);
     const startAngle = Math.PI * 0.8;
     const endAngle = Math.PI * 2.2;
-    const rawRpm = state.motor_f_rpm != null || state.motor_r_rpm != null ? Math.max((_a3 = state.motor_f_rpm) != null ? _a3 : 0, (_b = state.motor_r_rpm) != null ? _b : 0) : (_c = state.engine_rpm) != null ? _c : 0;
+    const rawRpm = state.motor_f_rpm != null || state.motor_r_rpm != null ? Math.max((_a2 = state.motor_f_rpm) != null ? _a2 : 0, (_b = state.motor_r_rpm) != null ? _b : 0) : (_c = state.engine_rpm) != null ? _c : 0;
     const MAX = 8e3;
     const val = smooth("rpm", rawRpm, 0.18);
     const t = Math.min(Math.max(val / MAX, 0), 1);
@@ -246,7 +273,7 @@
     document.getElementById("rpm-text").textContent = Math.round(val).toLocaleString();
   }
   function paintBattery() {
-    var _a3, _b, _c;
+    var _a2, _b, _c;
     const canvas = document.getElementById("battery-gauge");
     const ctx = canvas.getContext("2d");
     const W = canvas.width;
@@ -257,7 +284,7 @@
     ctx.clearRect(0, 0, W, H);
     const startAngle = Math.PI * 0.8;
     const endAngle = Math.PI * 2.2;
-    const val = smooth("battery", (_a3 = state.battery_pct) != null ? _a3 : 0, 0.12);
+    const val = smooth("battery", (_a2 = state.battery_pct) != null ? _a2 : 0, 0.12);
     const t = Math.min(Math.max(val / 100, 0), 1);
     drawArc(ctx, cx, cy, r, startAngle, endAngle, "#1f2a44", 14);
     const valEnd = startAngle + (endAngle - startAngle) * t;
@@ -272,7 +299,7 @@
     document.getElementById("range-text").textContent = `${ev} km EV \xB7 ${fuel} km fuel`;
   }
   function paintFooter() {
-    var _a3;
+    var _a2;
     for (const id of ["lf", "rf", "lr", "rr"]) {
       const el = document.getElementById(`d-${id}`);
       const v = state[`door_${id}`];
@@ -291,7 +318,7 @@
     const out = state.ac_temp_out;
     document.getElementById("c-cabin").textContent = cabin == null ? "\u2014" : displayTemp(cabin, "ac_cabin_temp");
     document.getElementById("c-out").textContent = out == null ? "\u2014" : displayTemp(out, "ac_temp_out");
-    document.getElementById("c-fan").textContent = (_a3 = state.ac_fan) != null ? _a3 : "\u2014";
+    document.getElementById("c-fan").textContent = (_a2 = state.ac_fan) != null ? _a2 : "\u2014";
     document.getElementById("c-ac").textContent = state.ac_power == null ? "\u2014" : state.ac_power === 1 ? "ON" : "OFF";
   }
   function paintHeaderFreshness() {
@@ -307,15 +334,24 @@
     return TENTH.has(name) ? (raw / 10).toFixed(1) : raw;
   }
   function cryptoUuid() {
-    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
-      return globalThis.crypto.randomUUID();
+    if (G.crypto && typeof G.crypto.randomUUID === "function") {
+      return G.crypto.randomUUID();
     }
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = Math.random() * 16 | 0;
       return (c === "x" ? r : r & 3 | 8).toString(16);
     });
   }
-  main().catch((err) => {
-    console.error("gauge-cluster fatal:", err);
-  });
+  (async () => {
+    host = await whenHostReady();
+    if (!host) {
+      document.getElementById("notice").classList.add("shown");
+      return;
+    }
+    try {
+      await main();
+    } catch (err) {
+      console.error("gauge-cluster fatal:", err);
+    }
+  })();
 })();

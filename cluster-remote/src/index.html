@@ -179,8 +179,7 @@
       // helpers (`client.cursor.attach`, `client.gesture.tap`); this
       // example uses the raw API to keep the bundle a single static
       // HTML file with no build step.
-      (function () {
-        var bridge = window.flutter_inappwebview;
+      (async function () {
         var pill = function (id, text, kind) {
           var el = document.getElementById(id);
           el.textContent = text;
@@ -192,6 +191,52 @@
           el.textContent += t + ' ' + msg + '\n';
           el.scrollTop = el.scrollHeight;
         };
+        // Host resolution: prefer the branded `__i99dashHost`
+        // (car-i99dash injects window.__i99dashHost AT_DOCUMENT_START),
+        // fall back to the plugin's transport global, and accept ONLY
+        // a candidate that actually exposes `callHandler`.
+        function resolveHost() {
+          var branded = window.__i99dashHost;
+          if (branded && typeof branded.callHandler === 'function') return branded;
+          var legacy = window.flutter_inappwebview;
+          if (legacy && typeof legacy.callHandler === 'function') return legacy;
+          return null;
+        }
+        // The host (flutter_inappwebview) is NOT guaranteed wired at
+        // initial synchronous script execution. The plugin signals
+        // readiness via the `flutterInAppWebViewPlatformReady` window
+        // event. Grabbing the host once eagerly loses this race on
+        // slower WebViews (DiLink 5.0 / L5) → renders but values "—".
+        // Bound the wait (event + poll + timeout); only on timeout do
+        // we show the "not inside host" path.
+        function waitForBridge(timeoutMs) {
+          return new Promise(function (resolve) {
+            var found = resolveHost();
+            if (found) return resolve(found);
+            var settled = false;
+            function finish(h) {
+              if (settled) return;
+              settled = true;
+              window.removeEventListener('flutterInAppWebViewPlatformReady', onReady);
+              clearInterval(poll);
+              clearTimeout(timer);
+              resolve(h);
+            }
+            function tryNow() {
+              var h = resolveHost();
+              if (h) finish(h);
+            }
+            function onReady() {
+              tryNow();
+            }
+            window.addEventListener('flutterInAppWebViewPlatformReady', onReady);
+            var poll = setInterval(tryNow, 150);
+            var timer = setTimeout(function () {
+              finish(resolveHost());
+            }, timeoutMs || 8000);
+          });
+        }
+        var bridge = await waitForBridge(8000);
         if (!bridge) {
           pill('bridge', 'bridge: missing', 'err');
           log('No host bridge — run inside i99dash.');

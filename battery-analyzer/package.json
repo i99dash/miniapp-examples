@@ -1,6 +1,6 @@
 {
   "name": "i99dash-example-battery-analyzer",
-  "version": "0.5.7",
+  "version": "0.5.11",
   "private": true,
   "description": "Battery analysis + health dashboard — SoC, cell balance, thermal balance, charging power, lifetime stats with plain-English explanations and warning indicators.",
   "type": "module",

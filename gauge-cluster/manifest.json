@@ -10,7 +10,7 @@
   },
   "icon": "./icon.svg",
   "url": "https://miniapps.i99dash.app/gauge-cluster/",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "minHostVersion": "0.0.2",
   "category": "vehicle",
   "safeWhileDriving": true,

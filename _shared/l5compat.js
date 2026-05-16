@@ -43,10 +43,52 @@ function _resolveHost() {
   if (legacy && typeof legacy.callHandler === 'function') return legacy;
   return null;
 }
+// Eager best-effort snapshot — kept for back-compat with callers that
+// read `host` directly. PREFER `whenHostReady()` / `inHost()` (live):
+// `flutter_inappwebview`'s `callHandler` is NOT guaranteed wired at
+// initial synchronous script execution — the plugin signals readiness
+// via the `flutterInAppWebViewPlatformReady` window event. Resolving
+// once eagerly loses that race on slower WebViews (DiLink 5.0) →
+// "not inside host" / every value "—", while a faster WebView (L8)
+// wins it. This is the confirmed L5 root cause.
 export const host = _resolveHost();
 
+/** Live presence check — re-resolves (host may arrive after load). */
 export function inHost() {
-  return host != null;
+  return _resolveHost() != null;
+}
+
+/**
+ * Resolve the host bridge, waiting for it if it isn't ready yet.
+ * Resolves immediately when already present (fast-WebView path, zero
+ * change); otherwise resolves on the `flutterInAppWebViewPlatformReady`
+ * event AND a 150 ms poll, capped by [timeoutMs] after which it
+ * resolves `null` (genuinely not in a host — e.g. a plain browser).
+ * Await this before first use instead of bailing on one eager check.
+ */
+export function whenHostReady(timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    const now = _resolveHost();
+    if (now) return resolve(now);
+    const w = typeof window !== 'undefined' ? window : null;
+    let settled = false;
+    const finish = (h) => {
+      if (settled) return;
+      settled = true;
+      if (w) w.removeEventListener('flutterInAppWebViewPlatformReady', onReady);
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(h);
+    };
+    const tryNow = () => {
+      const h = _resolveHost();
+      if (h) finish(h);
+    };
+    const onReady = () => tryNow();
+    if (w) w.addEventListener('flutterInAppWebViewPlatformReady', onReady);
+    const poll = setInterval(tryNow, 150);
+    const timer = setTimeout(() => finish(_resolveHost()), timeoutMs);
+  });
 }
 
 export function cryptoUuid() {
@@ -106,8 +148,12 @@ export function on(channel, fn) {
  * returns the payload directly.
  */
 export async function call(handler, payload = {}) {
-  if (!host) throw new Error('not_inside_host');
-  return host.callHandler(handler, payload);
+  // Resolve LAZILY (not the eager `host` snapshot) so a host that
+  // arrived after module load still works without the caller having
+  // to await whenHostReady() first.
+  const h = _resolveHost();
+  if (!h) throw new Error('not_inside_host');
+  return h.callHandler(handler, payload);
 }
 
 /**
@@ -117,8 +163,9 @@ export async function call(handler, payload = {}) {
  * error? }`. Throws `code: message` on `success === false`.
  */
 export async function callNative(handler, params = {}) {
-  if (!host) throw new Error('not_inside_host');
-  const raw = await host.callHandler(handler, {
+  const h = _resolveHost(); // lazy — see call()
+  if (!h) throw new Error('not_inside_host');
+  const raw = await h.callHandler(handler, {
     params,
     idempotencyKey: cryptoUuid(),
   });
