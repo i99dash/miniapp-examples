@@ -1,6 +1,6 @@
 {
   "name": "i99dash-example-pkg-launcher",
-  "version": "0.10.1",
+  "version": "0.10.4",
   "private": true,
   "description": "Phase C reference mini-app — launches installed packages on any display + manages the boot-launch list.",
   "type": "module",
@@ -16,6 +16,9 @@
     "i99dash": "^5.0.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "keytar"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "keytar"
+    ]
   }
 }

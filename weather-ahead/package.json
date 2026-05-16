@@ -1,6 +1,6 @@
 {
   "name": "weather-ahead",
-  "version": "0.6.0",
+  "version": "0.6.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,9 +12,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.0",
+    "i99dash": "^5.0.0",
     "sharp-cli": "^4.1.1"
-  },
-  "dependencies": {
-    "i99dash": "file:/tmp/sdk-pack/i99dash-2.0.0.tgz"
   }
 }

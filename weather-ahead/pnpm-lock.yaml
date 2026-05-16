@@ -7,14 +7,13 @@ settings:
 importers:
 
   .:
-    dependencies:
-      i99dash:
-        specifier: file:/tmp/sdk-pack/i99dash-2.0.0.tgz
-        version: file:../../../../../../tmp/sdk-pack/i99dash-2.0.0.tgz(zod@3.25.76)
     devDependencies:
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
+      i99dash:
+        specifier: ^5.0.0
+        version: 5.1.0(zod@3.25.76)
       sharp-cli:
         specifier: ^4.1.1
         version: 4.2.0
@@ -511,9 +510,8 @@ packages:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
     engines: {node: '>= 0.8'}
 
-  i99dash@file:../../../../../../tmp/sdk-pack/i99dash-2.0.0.tgz:
-    resolution: {integrity: sha512-3UO3hYCyXhy8F5pTDv1die8d+gTipmI2qLQncMnfjllMhx33j6WpPjXoLADxqCAttun7kCZp+L254cHSDluBcQ==, tarball: file:../../../../../../tmp/sdk-pack/i99dash-2.0.0.tgz}
-    version: 2.0.0
+  i99dash@5.1.0:
+    resolution: {integrity: sha512-LzaKVIi7ZLw8xr2nSFvH6B8ic4y107wQD8ikXu2SdLsiEmKntG3BQBsMPmGw597aEEUjP5+5poXilsPg4owyoA==}
     engines: {node: '>=20'}
     hasBin: true
     peerDependencies:
@@ -799,6 +797,7 @@ packages:
 
   sliced@1.0.1:
     resolution: {integrity: sha512-VZBmZP8WU3sMOZm1bdgTadsQbcscK0UM8oKxKVBs4XAhUo2Xxzm/OFMGBkPusxw9xL3Uy8LrzEqGqJhclsr0yA==}
+    deprecated: Unsupported
 
   sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}
@@ -1351,7 +1350,7 @@ snapshots:
       statuses: 2.0.2
       toidentifier: 1.0.1
 
-  i99dash@file:../../../../../../tmp/sdk-pack/i99dash-2.0.0.tgz(zod@3.25.76):
+  i99dash@5.1.0(zod@3.25.76):
     dependencies:
       '@fastify/static': 9.1.3
       chokidar: 5.0.0

@@ -12,22 +12,40 @@
 //
 // No localStorage needed for v1. State is in-memory only.
 
-import {
-  MiniAppClient,
-  NotInsideHostError,
-  LocationUnavailableError,
-} from 'i99dash';
+import { MiniAppClient, NotInsideHostError } from 'i99dash';
+// v5.1 host-catalog location source (bridge-v2 dropped the bespoke
+// `location.read` handler; `navigator.geolocation` is broken on the
+// L8 WebView). esbuild inlines this into the IIFE — gate-B safe.
+import { carLocation } from '../../_shared/l5compat.js';
+
+// v5 (i99dash ≥ 5) is a hard cutover that removed the per-family
+// `client.location` controller and its `LocationUnavailableError`
+// export (this app already sources position from the raw bridge /
+// `navigator.geolocation`, not `client.location`). Keep a local
+// error of the same name so the existing throw / `instanceof`
+// branches below stay unchanged.
+class LocationUnavailableError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'LocationUnavailableError';
+  }
+}
 
 // ── Location helper ──────────────────────────────────────────────
 //
-// Mini-apps used to call client.location.getSnapshot() / onChange()
-// — that path went through a bespoke host bridge that was never
-// wired up. The host now grants the standard browser
-// `navigator.geolocation` API to mini-apps that declare
-// `location.read` in their manifest, so we use the standard API
-// directly. Wraps each callback into the same {lat, lng, …} shape
-// the existing applyLocation() expects so the rest of the file
-// doesn't need to know about the swap.
+// Source order (i99dash-docs → Guides → Location):
+//   1. v5.1 host catalog — client.car `category:'location'` signals,
+//      via the shared carLocation(). This is the only path that
+//      works on the L8 DiLink WebView; it routes through the host's
+//      Geolocator instead of the WebView's broken stack. Auto-lights
+//      up when the host ships location signals — no redeploy.
+//   2. Legacy `location.read` host handler (older hosts that still
+//      expose it; bridge-v2 dropped it).
+//   3. `navigator.geolocation` (dev preview / browser only; known to
+//      time out on the L8 WebView, so short timeout + fail fast).
+// Each path is normalised to the {lat, lng, …} shape applyLocation()
+// expects. On total failure main() shows weather for a default city
+// rather than a dead "no data" screen.
 function _toSnapshot(p) {
   return {
     lat: p.coords.latitude,
@@ -48,14 +66,18 @@ function _toSnapshot(p) {
   };
 }
 
-// Prefer the host bridge — Chromium's `navigator.geolocation` in
-// the Leopard 8 WebView times out indefinitely even when the OS
-// LocationManager has a fresh fix (verified). The host's
-// `location.read` JS handler routes through Geolocator which goes
-// straight to LocationManager. Fall back to `navigator.geolocation`
-// only when the bridge isn't available (running outside the host,
-// dev preview, etc.).
 async function getLocationSnapshot() {
+  // 1. v5.1 host catalog (the path that works on the L8 WebView).
+  try {
+    const snap = await carLocation();
+    if (snap && typeof snap.lat === 'number' && typeof snap.lng === 'number') {
+      return snap;
+    }
+  } catch (e) {
+    console.warn('[weather-ahead] carLocation failed:', e && e.message);
+  }
+
+  // 2. Legacy `location.read` host handler (older hosts only).
   if (
     typeof window !== 'undefined' &&
     window.flutter_inappwebview &&
@@ -63,20 +85,18 @@ async function getLocationSnapshot() {
   ) {
     try {
       const raw = await window.flutter_inappwebview.callHandler('location.read');
-      if (raw && raw.success === false) {
-        throw new LocationUnavailableError(
-          (raw.error && raw.error.message) || 'location bridge denied',
-        );
+      if (raw && raw.success !== false) {
+        const data = (raw && raw.data) || raw;
+        if (data && typeof data.lat === 'number') return data;
       }
-      const data = (raw && raw.data) || raw;
-      return data;
-    } catch (e) {
-      throw e instanceof LocationUnavailableError
-        ? e
-        : new LocationUnavailableError(e.message || String(e));
+    } catch (_) {
+      /* handler gone under bridge-v2 — fall through */
     }
   }
-  // Browser fallback (dev preview).
+
+  // 3. Browser geolocation (dev preview). Known to hang on the L8
+  // WebView, so short timeout → fail fast to the default-city
+  // fallback instead of a blank "no data" screen.
   return new Promise((resolve, reject) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       return reject(new LocationUnavailableError('navigator.geolocation not available'));
@@ -84,7 +104,7 @@ async function getLocationSnapshot() {
     navigator.geolocation.getCurrentPosition(
       (p) => resolve(_toSnapshot(p)),
       (err) => reject(new LocationUnavailableError(err.message || 'geolocation failed')),
-      { enableHighAccuracy: false, timeout: 30_000, maximumAge: 5 * 60_000 },
+      { enableHighAccuracy: false, timeout: 8_000, maximumAge: 5 * 60_000 },
     );
   });
 }
@@ -640,17 +660,16 @@ async function main() {
     // Polls every 60s through the host bridge — see watchLocation().
     watchLocation(applyLocation);
   } catch (e) {
-    if (e instanceof LocationUnavailableError) {
-      coordsSource = 'denied';
-      renderLocationStatus();
-      console.info('Location denied — no fallback in host mode.');
-    } else {
-      console.error('Location bridge error:', e);
-      coordsSource = 'fallback';
-      coords = { lat: 24.774265, lng: 46.738586 };
-      renderLocationStatus();
-      fetchWeather(coords.lat, coords.lng);
-    }
+    // No location source resolved (bridge-v2 host with no location
+    // category yet + broken WebView geolocation). Never dead-end on
+    // "no data" — show weather for a sensible default city with an
+    // honest status. carLocation() upgrades this automatically once
+    // the host ships location signals (v5.1), no redeploy.
+    console.warn('[weather-ahead] no location source; using default city:', e && e.message);
+    coordsSource = 'fallback';
+    coords = { lat: 24.774265, lng: 46.738586 }; // Riyadh
+    renderLocationStatus();
+    fetchWeather(coords.lat, coords.lng);
   }
 
   // Wire refresh button.

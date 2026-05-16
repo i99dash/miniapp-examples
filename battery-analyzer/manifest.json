@@ -10,8 +10,12 @@
   },
   "icon": "./icon.svg",
   "url": "https://miniapps.i99dash.app/battery-analyzer/",
-  "version": "0.5.4",
-  "minHostVersion": "2.0.0",
+  "version": "0.5.8",
+  "minHostVersion": "0.0.2",
   "category": "vehicle",
-  "safeWhileDriving": true
+  "safeWhileDriving": true,
+  "requires": {
+    "schema": 1,
+    "minBridge": "2.0.0"
+  }
 }

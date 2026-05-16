@@ -4057,13 +4057,15 @@
   };
   var NEVER = INVALID;
 
-  // node_modules/.pnpm/i99dash@file+..+..+..+..+..+..+tmp+sdk-pack+i99dash-2.0.0.tgz_zod@3.25.76/node_modules/i99dash/dist/chunk-GZBKL5NT.js
+  // node_modules/.pnpm/i99dash@5.1.0_zod@3.25.76/node_modules/i99dash/dist/chunk-OZZV4MXS.js
   var MiniAppContextSchema = external_exports.object({
     /// Opaque stable identifier for the signed-in user. Empty string
     /// when no account is bound. Treat as non-public.
     userId: external_exports.string(),
-    /// VIN of the active car. Empty string when unbound. Sensitive —
-    /// don't render in plain text or log to third parties.
+    /// BYD media/cloud device ID of the active car (the value formerly
+    /// referred to as the car's "VIN" in this SDK — see MIGRATING.md;
+    /// it is NOT the ISO 3779 chassis VIN). Empty string when unbound.
+    /// Sensitive — don't render in plain text or log to third parties.
     activeCarId: external_exports.string(),
     /// Host UI locale. Drives text direction + localised strings.
     locale: external_exports.enum(["ar", "en"]),
@@ -4094,6 +4096,152 @@
       error: external_exports.object({ code: external_exports.string(), message: external_exports.string() })
     })
   ]);
+  var category_slugs_default = [
+    "navigation",
+    "media",
+    "vehicle",
+    "productivity",
+    "communication",
+    "entertainment",
+    "services",
+    "lifestyle",
+    "developer",
+    "other"
+  ];
+  var LocaleMapSchema = external_exports.record(
+    external_exports.string().regex(/^[a-z]{2}$/, "locale key must be 2 lowercase letters"),
+    external_exports.string().min(1, "locale value cannot be empty")
+  ).refine((m) => Object.keys(m).length > 0, "at least one locale required");
+  var assetPath = (extPattern, label) => external_exports.string().min(3).max(256).regex(/^\.\//, `${label} must be a relative path starting with "./"`).refine((p) => !p.split("/").includes(".."), `${label} must not traverse parent directories`).refine((p) => extPattern.test(p), `${label} extension must be one of ${extPattern.source}`);
+  var ICON_EXT = /\.(png|svg)$/i;
+  var PHOTO_EXT = /\.(png|jpe?g|webp|svg)$/i;
+  var MiniAppManifestSchema = external_exports.object({
+    /// URL-safe, globally unique identifier. Also lives in pinned
+    /// home-screen shortcut deep links (`.../m/<id>`), so rotating this
+    /// orphans every user's pinned icon — bump `version` instead.
+    id: external_exports.string().min(2).max(64).regex(
+      /^[a-z0-9][a-z0-9_-]{1,63}$/,
+      "lowercase alphanumeric, _ or -, must not start with separator"
+    ),
+    /// Required; at least one locale. Host renders a tile title from this.
+    name: LocaleMapSchema,
+    /// Optional per-row copy. Same fallback semantics as `name`.
+    description: LocaleMapSchema.optional(),
+    /// Bundle-relative path to the tile icon. The publish service rewrites
+    /// this to an absolute CDN URL at submit time; the catalog API and the
+    /// Flutter host see only the rewritten URL string in this field. PNG
+    /// or SVG, 256×256, ≤ 100 KB.
+    icon: assetPath(ICON_EXT, "icon"),
+    /// Optional 16:9 cover image rendered on app-detail surfaces. Same
+    /// relative-path rules as `icon`. PNG / JPEG / WebP / SVG, 1280×720,
+    /// ≤ 500 KB.
+    coverImage: assetPath(PHOTO_EXT, "coverImage").optional(),
+    /// Optional gallery (≤ 8). PNG / JPEG / WebP / SVG, ≤ 1920×1080,
+    /// ≤ 800 KB each. Same relative-path + rewrite-at-submit semantics
+    /// as `icon`.
+    screenshots: external_exports.array(assetPath(PHOTO_EXT, "screenshots[]")).max(8).optional(),
+    /// HTTPS URL the host's WebView opens. Must live under an allow-listed
+    /// origin (`miniapps.i99dash.app` in v1). The host enforces this at
+    /// launch; a manifest pointing off-allowlist is rejected.
+    url: external_exports.string().url().startsWith("https://", "url must be https"),
+    /// Opaque version string (semver-shaped by convention). Bumped per
+    /// release to bust the WebView cache.
+    version: external_exports.string().min(1),
+    /// Minimum host app version. Hosts below this show an "update your
+    /// app" card instead of opening the viewer. Omit for "any".
+    minHostVersion: external_exports.string().optional(),
+    /// Catalog category. Closed enum — see `CATEGORY_SLUGS` for the
+    /// canonical list. Adding a category is a SDK + backend lockstep PR
+    /// (the JSON file is vendored into backend-i99dash; CI fails on drift).
+    category: external_exports.enum(category_slugs_default),
+    /// Optional free-form tags. Used for search/filter only — not the
+    /// primary navigation surface (categories are). Lowercase
+    /// alphanumerics + hyphens, ≤ 24 chars each, ≤ 8 tags.
+    tags: external_exports.array(
+      external_exports.string().min(1).max(24).regex(/^[a-z0-9-]+$/, "tag must be lowercase alphanumeric or hyphen")
+    ).max(8).optional(),
+    /// Whether this app may render while the car is moving (speed > 5 km/h).
+    /// Default `false` — catalog authors must explicitly opt in. Set only
+    /// if the app is read-only, glanceable, no text input / video /
+    /// interactive map.
+    safeWhileDriving: external_exports.boolean().default(false)
+  });
+  var CarCatalogEntrySchema = external_exports.object({
+    name: external_exports.string(),
+    category: external_exports.string(),
+    description: external_exports.string().optional(),
+    units: external_exports.string().optional().nullable(),
+    range: external_exports.object({ min: external_exports.number(), max: external_exports.number() }).optional().nullable(),
+    writeable: external_exports.boolean(),
+    writeActionId: external_exports.string().optional().nullable(),
+    threeD: external_exports.boolean()
+  }).passthrough();
+  var CarCatalogListSchema = external_exports.object({
+    bridgeVersion: external_exports.string(),
+    brand: external_exports.string(),
+    categories: external_exports.array(external_exports.string()),
+    names: external_exports.array(CarCatalogEntrySchema)
+  });
+  var CarReadResponseSchema = external_exports.object({
+    values: external_exports.record(external_exports.string(), external_exports.number().nullable()),
+    at: external_exports.string()
+  });
+  var CarSubscribeResponseSchema = external_exports.object({
+    subscriptionId: external_exports.string(),
+    rejected: external_exports.array(external_exports.string()).optional()
+  });
+  var CarSignalEventSchema = external_exports.object({
+    name: external_exports.string(),
+    value: external_exports.number().nullable(),
+    at: external_exports.string()
+  });
+  var CarIdentitySchema = external_exports.object({
+    brand: external_exports.string(),
+    modelCode: external_exports.string().nullable(),
+    modelDisplay: external_exports.string().nullable(),
+    modelAssetPath: external_exports.string().nullable(),
+    clips: external_exports.array(external_exports.string()),
+    variants: external_exports.object({
+      paint: external_exports.array(external_exports.string()),
+      wheels: external_exports.array(external_exports.string()),
+      glass: external_exports.array(external_exports.string())
+    })
+  });
+  var CarAssetResponseSchema = external_exports.object({
+    path: external_exports.string(),
+    contentType: external_exports.string(),
+    size: external_exports.number(),
+    bytesBase64: external_exports.string()
+  });
+  var CarConnectionStateSchema = external_exports.enum([
+    "connected",
+    "degraded",
+    "disconnected",
+    "unknown"
+  ]);
+  var CarSignalPushEnvelopeSchema = external_exports.object({
+    subscriptionId: external_exports.string(),
+    data: CarSignalEventSchema
+  });
+  var CarConnectionPushEnvelopeSchema = external_exports.object({
+    subscriptionId: external_exports.string(),
+    state: CarConnectionStateSchema
+  });
+  var CarCommandResponseSchema = external_exports.object({
+    ok: external_exports.boolean(),
+    code: external_exports.number().optional(),
+    data: external_exports.unknown().optional()
+  }).passthrough();
+  var HostCapabilitiesSchema = external_exports.object({
+    /// Semver-ish string the host pins itself to. Opaque to the SDK —
+    /// only the SDK's `client.bridgeVersion()` consumer (e.g. a
+    /// crash-reporter) reads it.
+    bridgeVersion: external_exports.string().min(1),
+    /// Permission scope identifiers the host has handlers for. The
+    /// well-known set today is `['car.status']`; new families
+    /// (e.g. `media.read`) append themselves here as they ship.
+    families: external_exports.array(external_exports.string().min(1))
+  }).strict();
   var VEHICLE_CAPABILITIES = [
     // 0–4: read surfaces — every car has these unless the OS layer is
     //      degraded (dev runner, web preview).
@@ -4184,320 +4332,8 @@
     /// reports from probe versions known to false-negative.
     probeVersion: external_exports.string().min(1).max(32)
   }).strict();
-  var category_slugs_default = [
-    "navigation",
-    "media",
-    "vehicle",
-    "productivity",
-    "communication",
-    "entertainment",
-    "services",
-    "lifestyle",
-    "developer",
-    "other"
-  ];
-  var LocaleMapSchema = external_exports.record(
-    external_exports.string().regex(/^[a-z]{2}$/, "locale key must be 2 lowercase letters"),
-    external_exports.string().min(1, "locale value cannot be empty")
-  ).refine((m) => Object.keys(m).length > 0, "at least one locale required");
-  var assetPath = (extPattern, label) => external_exports.string().min(3).max(256).regex(/^\.\//, `${label} must be a relative path starting with "./"`).refine((p) => !p.split("/").includes(".."), `${label} must not traverse parent directories`).refine((p) => extPattern.test(p), `${label} extension must be one of ${extPattern.source}`);
-  var ICON_EXT = /\.(png|svg)$/i;
-  var PHOTO_EXT = /\.(png|jpe?g|webp|svg)$/i;
-  var MiniAppManifestSchema = external_exports.object({
-    /// URL-safe, globally unique identifier. Also lives in pinned
-    /// home-screen shortcut deep links (`.../m/<id>`), so rotating this
-    /// orphans every user's pinned icon — bump `version` instead.
-    id: external_exports.string().min(2).max(64).regex(
-      /^[a-z0-9][a-z0-9_-]{1,63}$/,
-      "lowercase alphanumeric, _ or -, must not start with separator"
-    ),
-    /// Required; at least one locale. Host renders a tile title from this.
-    name: LocaleMapSchema,
-    /// Optional per-row copy. Same fallback semantics as `name`.
-    description: LocaleMapSchema.optional(),
-    /// Bundle-relative path to the tile icon. The publish service rewrites
-    /// this to an absolute CDN URL at submit time; the catalog API and the
-    /// Flutter host see only the rewritten URL string in this field. PNG
-    /// or SVG, 256×256, ≤ 100 KB.
-    icon: assetPath(ICON_EXT, "icon"),
-    /// Optional 16:9 cover image rendered on app-detail surfaces. Same
-    /// relative-path rules as `icon`. PNG / JPEG / WebP / SVG, 1280×720,
-    /// ≤ 500 KB.
-    coverImage: assetPath(PHOTO_EXT, "coverImage").optional(),
-    /// Optional gallery (≤ 8). PNG / JPEG / WebP / SVG, ≤ 1920×1080,
-    /// ≤ 800 KB each. Same relative-path + rewrite-at-submit semantics
-    /// as `icon`.
-    screenshots: external_exports.array(assetPath(PHOTO_EXT, "screenshots[]")).max(8).optional(),
-    /// HTTPS URL the host's WebView opens. Must live under an allow-listed
-    /// origin (`miniapps.i99dash.app` in v1). The host enforces this at
-    /// launch; a manifest pointing off-allowlist is rejected.
-    url: external_exports.string().url().startsWith("https://", "url must be https"),
-    /// Opaque version string (semver-shaped by convention). Bumped per
-    /// release to bust the WebView cache.
-    version: external_exports.string().min(1),
-    /// Minimum host app version. Hosts below this show an "update your
-    /// app" card instead of opening the viewer. Omit for "any".
-    minHostVersion: external_exports.string().optional(),
-    /// Catalog category. Closed enum — see `CATEGORY_SLUGS` for the
-    /// canonical list. Adding a category is a SDK + backend lockstep PR
-    /// (the JSON file is vendored into backend-i99dash; CI fails on drift).
-    category: external_exports.enum(category_slugs_default),
-    /// Optional free-form tags. Used for search/filter only — not the
-    /// primary navigation surface (categories are). Lowercase
-    /// alphanumerics + hyphens, ≤ 24 chars each, ≤ 8 tags.
-    tags: external_exports.array(
-      external_exports.string().min(1).max(24).regex(/^[a-z0-9-]+$/, "tag must be lowercase alphanumeric or hyphen")
-    ).max(8).optional(),
-    /// Whether this app may render while the car is moving (speed > 5 km/h).
-    /// Default `false` — catalog authors must explicitly opt in. Set only
-    /// if the app is read-only, glanceable, no text input / video /
-    /// interactive map.
-    safeWhileDriving: external_exports.boolean().default(false),
-    /// Phase G — privilege-tier opt-in. List of `cmdExec.*` permission
-    /// ids the bundle needs at runtime. Empty (default) = unprivileged
-    /// publish. The SDK CLI checks this list against the developer's
-    /// granted perms BEFORE upload-url is minted, so a missing perm
-    /// surfaces as a fast-fail with "request these first" instead of
-    /// at runtime when the device blocks the action. The backend's
-    /// `MiniAppService.submit` re-validates server-side as defence in
-    /// depth.
-    requiredPermissions: external_exports.array(external_exports.string().min(1).max(64)).default([]),
-    /// Family read-only namespaces the bundle calls (``media.read``,
-    /// ``vehicle.environment``, …). The host gates every family bridge
-    /// call on this list — a missing entry returns ``permission_denied``
-    /// from the host. Distinct from ``requiredPermissions`` because
-    /// family reads have no per-developer grant requirement; any signed
-    /// publisher can declare them.
-    ///
-    /// Validated against the host's known-family set on submit; an
-    /// unknown name fails the publish.
-    permissions: external_exports.array(
-      external_exports.enum([
-        "car.status.read",
-        "climate.read",
-        "connectivity.read",
-        "location.read",
-        "media.read",
-        "nav.read",
-        "system.read",
-        "vehicle.diagnostics",
-        "vehicle.environment"
-      ])
-    ).default([]),
-    /// Vehicle / hardware capabilities the bundle needs to function. The
-    /// host's catalog merge dims rows where the active car doesn't
-    /// expose every entry here (subset check). Distinct from
-    /// `permissions` (host family gating) and `requiredPermissions`
-    /// (publisher-grant gating); see `vehicle-capabilities.ts` for the
-    /// three-way split.
-    ///
-    /// Closed enum — additions require a coordinated SDK + host +
-    /// backend bump (CI drift check enforces it). Empty default keeps
-    /// existing manifests valid: a row that declares nothing here is
-    /// treated as "runs anywhere" and only filtered by the `permissions`
-    /// / `requiredPermissions` gates.
-    requiredCapabilities: external_exports.array(external_exports.enum(VEHICLE_CAPABILITIES)).default([])
-  });
-  var CarStatusStalenessSchema = external_exports.enum(["fresh", "stale", "very_stale"]);
-  var CarDoorStateSchema = external_exports.enum(["open", "closed"]);
-  var CarDoorsSchema = external_exports.object({
-    driver: CarDoorStateSchema.optional(),
-    passenger: CarDoorStateSchema.optional(),
-    rearLeft: CarDoorStateSchema.optional(),
-    rearRight: CarDoorStateSchema.optional()
-  }).strict();
-  var CarStatusSchema = external_exports.object({
-    vin: external_exports.string().min(1),
-    /// ISO-8601 UTC, ``Z`` suffix.
-    at: external_exports.string(),
-    staleness: CarStatusStalenessSchema,
-    isMoving: external_exports.boolean().optional(),
-    speedKmh: external_exports.number().min(0).optional(),
-    doorsLocked: external_exports.boolean().optional(),
-    doors: CarDoorsSchema.optional(),
-    batteryPct: external_exports.number().min(0).max(100).optional(),
-    charging: external_exports.boolean().optional(),
-    acOn: external_exports.boolean().optional()
-  }).strict();
-  var CarConnectionStateSchema = external_exports.enum(["connected", "disconnected"]);
-  var HostCapabilitiesSchema = external_exports.object({
-    /// Semver-ish string the host pins itself to. Opaque to the SDK —
-    /// only the SDK's `client.bridgeVersion()` consumer (e.g. a
-    /// crash-reporter) reads it.
-    bridgeVersion: external_exports.string().min(1),
-    /// Permission scope identifiers the host has handlers for. The
-    /// well-known set today is `['car.status']`; new families
-    /// (e.g. `media.read`) append themselves here as they ship.
-    families: external_exports.array(external_exports.string().min(1))
-  }).strict();
-  var MediaSourceSchema = external_exports.enum([
-    /// Bluetooth-connected phone (the common case).
-    "bluetooth",
-    /// USB stick / wired iPhone-style source.
-    "usb",
-    /// Aux line-in.
-    "aux",
-    /// Built-in radio (FM/AM/DAB depending on region).
-    "radio",
-    /// "Quiet" — the host reports no source playing.
-    "none",
-    /// Anything the host couldn't classify into the above. Mini-apps
-    /// should treat this as "playing something I don't know about" and
-    /// hide source-specific UI.
-    "other"
-  ]);
-  var MediaPlayStateSchema = external_exports.enum(["playing", "paused", "stopped"]);
-  var MediaSnapshotSchema = external_exports.object({
-    title: external_exports.string().nullable(),
-    artist: external_exports.string().nullable(),
-    album: external_exports.string().nullable(),
-    /// HTTPS URL to the album art if the source publishes one.
-    /// Renderable directly from a `<img>`. The host fetches +
-    /// caches; the URL is host-side, not the original CDN — so
-    /// the bundle never reaches the source's tracking pixels.
-    artUrl: external_exports.string().url().nullable(),
-    state: MediaPlayStateSchema,
-    source: MediaSourceSchema,
-    /// 0.0–1.0 (inclusive). Normalised across whatever scale the
-    /// underlying source uses.
-    volume: external_exports.number().min(0).max(1),
-    /// ISO-8601 timestamp the host captured this snapshot. UTC.
-    at: external_exports.string().min(1)
-  }).strict();
-  var ClimateModeSchema = external_exports.enum(["heat", "cool", "auto", "fan", "off"]);
-  var ClimateSnapshotSchema = external_exports.object({
-    /// Current cabin temperature, in degrees Celsius. Host-side
-    /// translation handles the OEM unit; mini-apps render in the
-    /// user's preferred unit using `client.system.getSnapshot().units`.
-    cabinTempC: external_exports.number(),
-    /// User's setpoint, also in Celsius.
-    setpointC: external_exports.number(),
-    /// 0.0 (off) — 1.0 (max). Normalised by the host across the
-    /// underlying HVAC's stepped scale.
-    fanSpeed: external_exports.number().min(0).max(1),
-    mode: ClimateModeSchema,
-    /// Number of climate zones the underlying system exposes
-    /// (single-zone = 1, dual = 2, ...). Lets the UI layout adapt.
-    zoneCount: external_exports.number().int().min(1).max(8),
-    /// ISO-8601 capture wall-clock, UTC.
-    at: external_exports.string().min(1)
-  }).strict();
-  var GearPositionSchema = external_exports.enum(["P", "R", "N", "D", "M", "unknown"]);
-  var TirePressureSchema = external_exports.object({
-    frontLeft: external_exports.number().nullable(),
-    frontRight: external_exports.number().nullable(),
-    rearLeft: external_exports.number().nullable(),
-    rearRight: external_exports.number().nullable()
-  }).strict();
-  var VehicleDiagnosticsSnapshotSchema = external_exports.object({
-    tirePressure: TirePressureSchema,
-    gearPosition: GearPositionSchema,
-    /// Odometer, in km, bucketed by the host (floor 1000, ceiling
-    /// 10000 km depending on regional fleet density) and offset by
-    /// a per-launch ±100 km jitter. Stable within a session, varies
-    /// across sessions.
-    odometerKm: external_exports.number().nonnegative(),
-    /// ISO-8601 capture wall-clock, UTC.
-    at: external_exports.string().min(1)
-  }).strict();
-  var VehicleEnvironmentSnapshotSchema = external_exports.object({
-    /// Air-quality index, 0–500. Nullable when the OEM doesn't
-    /// publish one for this region.
-    aqi: external_exports.number().nullable(),
-    /// PM2.5 concentration in µg/m³.
-    pm25: external_exports.number().nullable(),
-    /// Ambient cabin light, in lux. Nullable on hosts without an
-    /// ambient-light sensor.
-    ambientLightLux: external_exports.number().nullable(),
-    /// ISO-8601 capture wall-clock, UTC.
-    at: external_exports.string().min(1)
-  }).strict();
-  var DistanceUnitSchema = external_exports.enum(["km", "mi"]);
-  var TemperatureUnitSchema = external_exports.enum(["celsius", "fahrenheit"]);
-  var OtaStatusSchema = external_exports.enum([
-    "idle",
-    "checking",
-    "downloading",
-    "ready_to_install",
-    "installing",
-    "failed"
-  ]);
-  var SystemSnapshotSchema = external_exports.object({
-    otaStatus: OtaStatusSchema,
-    units: external_exports.object({
-      distance: DistanceUnitSchema,
-      temperature: TemperatureUnitSchema
-    }).strict(),
-    /// 0.0 (dim) — 1.0 (max). The host normalises whatever scale the
-    /// underlying display uses.
-    displayBrightness: external_exports.number().min(0).max(1),
-    /// ISO-8601 capture wall-clock, UTC.
-    at: external_exports.string().min(1)
-  }).strict();
-  var NetworkTypeSchema = external_exports.enum(["wifi", "cellular", "ethernet", "offline", "unknown"]);
-  var ConnectivitySnapshotSchema = external_exports.object({
-    network: NetworkTypeSchema,
-    /// Number of currently-paired Bluetooth devices the host knows
-    /// about. Names / identifiers stay host-side.
-    bluetoothPairedCount: external_exports.number().int().min(0),
-    /// ISO-8601 capture wall-clock, UTC.
-    at: external_exports.string().min(1)
-  }).strict();
-  var LocationSnapshotSchema = external_exports.object({
-    /// Latitude in WGS-84 degrees. Always present.
-    lat: external_exports.number().min(-90).max(90),
-    /// Longitude in WGS-84 degrees.
-    lng: external_exports.number().min(-180).max(180),
-    /// Heading in degrees clockwise from true north (0..360),
-    /// or `null` when the host is stationary / can't compute one.
-    /// Apps that depend on heading should treat `null` as "use last
-    /// known" or hide the directional UI.
-    heading: external_exports.number().min(0).max(360).nullable(),
-    /// Ground speed in metres per second. `null` when unknown.
-    speedMps: external_exports.number().min(0).nullable(),
-    /// Horizontal accuracy in metres (1-sigma estimate). `null` when
-    /// the underlying GNSS fix doesn't publish one.
-    accuracyM: external_exports.number().nonnegative().nullable(),
-    /// ISO-8601 capture wall-clock, UTC.
-    at: external_exports.string().min(1)
-  }).strict();
-  var NavManeuverSchema = external_exports.enum([
-    "continue",
-    "turn_left",
-    "turn_right",
-    "sharp_left",
-    "sharp_right",
-    "slight_left",
-    "slight_right",
-    "u_turn",
-    "roundabout",
-    "merge",
-    "exit",
-    "arrive",
-    "unknown"
-  ]);
-  var NavigationSnapshotSchema = external_exports.object({
-    active: external_exports.boolean(),
-    /// Friendly destination name when active. `null` when no route
-    /// or when the underlying engine has no label.
-    destinationLabel: external_exports.string().nullable(),
-    /// Remaining road distance to the active route's final waypoint,
-    /// in metres. `null` when no route.
-    distanceRemainingM: external_exports.number().nonnegative().nullable(),
-    /// Estimated arrival, in seconds from `at`. `null` when the
-    /// engine hasn't computed an ETA yet (e.g. just-started reroute).
-    etaSeconds: external_exports.number().nonnegative().nullable(),
-    /// Current maneuver hint. `null` when the engine isn't yet on a
-    /// step (just left a roundabout, between turns, etc.).
-    currentManeuver: NavManeuverSchema.nullable(),
-    /// Distance to the next maneuver, in metres. `null` when no
-    /// maneuver is queued or the engine doesn't publish a distance.
-    distanceToTurnM: external_exports.number().nonnegative().nullable(),
-    /// ISO-8601 capture wall-clock, UTC.
-    at: external_exports.string().min(1)
-  }).strict();
 
-  // node_modules/.pnpm/i99dash@file+..+..+..+..+..+..+tmp+sdk-pack+i99dash-2.0.0.tgz_zod@3.25.76/node_modules/i99dash/dist/chunk-UYGIDVBX.js
+  // node_modules/.pnpm/i99dash@5.1.0_zod@3.25.76/node_modules/i99dash/dist/chunk-7Y2MV4TH.js
   var DOCS_BASE = "docs/api-ref/errors.md";
   var SDKError = class extends Error {
     constructor(name, code, docsUrl, message, options) {
@@ -4566,16 +4402,6 @@
       );
     }
   };
-  var CarStatusUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "CarStatusUnavailableError",
-        "CAR_STATUS_UNAVAILABLE",
-        `${DOCS_BASE}#car_status_unavailable`,
-        `car status not available \u2014 ${detail} (see ${DOCS_BASE}#car_status_unavailable)`
-      );
-    }
-  };
   var CallApiFailedError = class extends SDKError {
     constructor(errorCode, message) {
       super(
@@ -4590,120 +4416,11 @@
       this.errorCode = errorCode;
     }
   };
-  var MediaUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "MediaUnavailableError",
-        "MEDIA_UNAVAILABLE",
-        `${DOCS_BASE}#media_unavailable`,
-        `media not available \u2014 ${detail} (see ${DOCS_BASE}#media_unavailable)`
-      );
-    }
-  };
-  var ClimateUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "ClimateUnavailableError",
-        "CLIMATE_UNAVAILABLE",
-        `${DOCS_BASE}#climate_unavailable`,
-        `climate not available \u2014 ${detail} (see ${DOCS_BASE}#climate_unavailable)`
-      );
-    }
-  };
-  var VehicleDiagnosticsUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "VehicleDiagnosticsUnavailableError",
-        "VEHICLE_DIAGNOSTICS_UNAVAILABLE",
-        `${DOCS_BASE}#vehicle_diagnostics_unavailable`,
-        `vehicle.diagnostics not available \u2014 ${detail} (see ${DOCS_BASE}#vehicle_diagnostics_unavailable)`
-      );
-    }
-  };
-  var VehicleEnvironmentUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "VehicleEnvironmentUnavailableError",
-        "VEHICLE_ENVIRONMENT_UNAVAILABLE",
-        `${DOCS_BASE}#vehicle_environment_unavailable`,
-        `vehicle.environment not available \u2014 ${detail} (see ${DOCS_BASE}#vehicle_environment_unavailable)`
-      );
-    }
-  };
-  var SystemUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "SystemUnavailableError",
-        "SYSTEM_UNAVAILABLE",
-        `${DOCS_BASE}#system_unavailable`,
-        `system not available \u2014 ${detail} (see ${DOCS_BASE}#system_unavailable)`
-      );
-    }
-  };
-  var ConnectivityUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "ConnectivityUnavailableError",
-        "CONNECTIVITY_UNAVAILABLE",
-        `${DOCS_BASE}#connectivity_unavailable`,
-        `connectivity not available \u2014 ${detail} (see ${DOCS_BASE}#connectivity_unavailable)`
-      );
-    }
-  };
-  var LocationUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "LocationUnavailableError",
-        "LOCATION_UNAVAILABLE",
-        `${DOCS_BASE}#location_unavailable`,
-        `location not available \u2014 ${detail} (see ${DOCS_BASE}#location_unavailable)`
-      );
-    }
-  };
-  var NavigationUnavailableError = class extends SDKError {
-    constructor(detail) {
-      super(
-        "NavigationUnavailableError",
-        "NAVIGATION_UNAVAILABLE",
-        `${DOCS_BASE}#navigation_unavailable`,
-        `navigation not available \u2014 ${detail} (see ${DOCS_BASE}#navigation_unavailable)`
-      );
-    }
-  };
-  function isCarStatusBridge(b) {
-    const c = b;
-    return typeof c.getCarStatus === "function" && typeof c.subscribeCarStatus === "function" && typeof c.unsubscribeCarStatus === "function" && typeof c.subscribeCarConnectionState === "function" && typeof c.unsubscribeCarConnectionState === "function";
-  }
   function isCapabilitiesBridge(b) {
     return typeof b.capabilities === "function";
   }
-  function isMediaBridge(b) {
-    const c = b;
-    return typeof c.getMedia === "function" && typeof c.subscribeMedia === "function" && typeof c.unsubscribeMedia === "function";
-  }
-  function isClimateBridge(b) {
-    const c = b;
-    return typeof c.getClimate === "function" && typeof c.subscribeClimate === "function" && typeof c.unsubscribeClimate === "function";
-  }
-  function isVehicleDiagnosticsBridge(b) {
-    const c = b;
-    return typeof c.getVehicleDiagnostics === "function" && typeof c.subscribeVehicleDiagnostics === "function" && typeof c.unsubscribeVehicleDiagnostics === "function";
-  }
-  function isVehicleEnvironmentBridge(b) {
-    const c = b;
-    return typeof c.getVehicleEnvironment === "function" && typeof c.subscribeVehicleEnvironment === "function" && typeof c.unsubscribeVehicleEnvironment === "function";
-  }
-  function isSystemBridge(b) {
-    const c = b;
-    return typeof c.getSystem === "function" && typeof c.subscribeSystem === "function" && typeof c.unsubscribeSystem === "function";
-  }
-  function isConnectivityBridge(b) {
-    const c = b;
-    return typeof c.getConnectivity === "function" && typeof c.subscribeConnectivity === "function" && typeof c.unsubscribeConnectivity === "function";
-  }
-  function isNavigationBridge(b) {
-    const c = b;
-    return typeof c.getNavigation === "function" && typeof c.subscribeNavigation === "function" && typeof c.unsubscribeNavigation === "function";
+  function isCarBridge(b) {
+    return typeof b.callHandler === "function";
   }
   function isFamilyBridge(b) {
     return typeof b.callFamily === "function";
@@ -4785,6 +4502,18 @@
         throw new BridgeTransportError("capabilities bridge call failed", cause);
       }
     }
+    /// Raw `callHandler` proxy. The [CarController] uses this to reach
+    /// the v2 `car.*` handler surface without having a typed wrapper
+    /// per handler — the unified name-keyed contract makes the typed
+    /// shim layer redundant. Errors are wrapped in
+    /// [BridgeTransportError].
+    async callHandler(name, ...args) {
+      try {
+        return await this.api.callHandler(name, ...args);
+      } catch (cause) {
+        throw new BridgeTransportError(`${name} bridge call failed`, cause);
+      }
+    }
     /// Generic family op. Routes to the host's `<familyId>.<op>`
     /// JS handler, which the host wires up to its
     /// [BridgeFamilyRegistry] + [FamilyExecutor]. Returns the host's
@@ -4800,594 +4529,277 @@
         throw new BridgeTransportError(`${handlerName} bridge call failed`, cause);
       }
     }
-    async getCarStatus() {
-      try {
-        return await this.api.callHandler("car.status.read");
-      } catch (cause) {
-        throw new BridgeTransportError("car.status.read bridge call failed", cause);
-      }
-    }
-    async subscribeCarStatus(notify) {
-      return this._subscribeChannel("car.status", notify);
-    }
-    async unsubscribeCarStatus(id) {
-      return this._unsubscribeChannel("car.status", id);
-    }
-    async subscribeCarConnectionState(notify) {
-      return this._subscribeChannel("car.connection", notify);
-    }
-    async unsubscribeCarConnectionState(id) {
-      return this._unsubscribeChannel("car.connection", id);
-    }
-    async getMedia() {
-      try {
-        return await this.api.callHandler("media.read");
-      } catch (cause) {
-        throw new BridgeTransportError("media.read bridge call failed", cause);
-      }
-    }
-    async subscribeMedia(notify) {
-      return this._subscribeChannel("media", notify);
-    }
-    async unsubscribeMedia(id) {
-      return this._unsubscribeChannel("media", id);
-    }
-    async getClimate() {
-      try {
-        return await this.api.callHandler("climate.read");
-      } catch (cause) {
-        throw new BridgeTransportError("climate.read bridge call failed", cause);
-      }
-    }
-    async subscribeClimate(notify) {
-      return this._subscribeChannel("climate", notify);
-    }
-    async unsubscribeClimate(id) {
-      return this._unsubscribeChannel("climate", id);
-    }
-    async getVehicleDiagnostics() {
-      try {
-        return await this.api.callHandler("vehicle.diagnostics.read");
-      } catch (cause) {
-        throw new BridgeTransportError("vehicle.diagnostics.read bridge call failed", cause);
-      }
-    }
-    async subscribeVehicleDiagnostics(notify) {
-      return this._subscribeChannel("vehicle.diagnostics", notify);
-    }
-    async unsubscribeVehicleDiagnostics(id) {
-      return this._unsubscribeChannel("vehicle.diagnostics", id);
-    }
-    async getVehicleEnvironment() {
-      try {
-        return await this.api.callHandler("vehicle.environment.read");
-      } catch (cause) {
-        throw new BridgeTransportError("vehicle.environment.read bridge call failed", cause);
-      }
-    }
-    async subscribeVehicleEnvironment(notify) {
-      return this._subscribeChannel("vehicle.environment", notify);
-    }
-    async unsubscribeVehicleEnvironment(id) {
-      return this._unsubscribeChannel("vehicle.environment", id);
-    }
-    async getSystem() {
-      try {
-        return await this.api.callHandler("system.read");
-      } catch (cause) {
-        throw new BridgeTransportError("system.read bridge call failed", cause);
-      }
-    }
-    async subscribeSystem(notify) {
-      return this._subscribeChannel("system", notify);
-    }
-    async unsubscribeSystem(id) {
-      return this._unsubscribeChannel("system", id);
-    }
-    async getConnectivity() {
-      try {
-        return await this.api.callHandler("connectivity.read");
-      } catch (cause) {
-        throw new BridgeTransportError("connectivity.read bridge call failed", cause);
-      }
-    }
-    async subscribeConnectivity(notify) {
-      return this._subscribeChannel("connectivity", notify);
-    }
-    async unsubscribeConnectivity(id) {
-      return this._unsubscribeChannel("connectivity", id);
-    }
-    async getLocation() {
-      try {
-        return await this.api.callHandler("location.read");
-      } catch (cause) {
-        throw new BridgeTransportError("location.read bridge call failed", cause);
-      }
-    }
-    async subscribeLocation(notify) {
-      return this._subscribeChannel("location", notify);
-    }
-    async unsubscribeLocation(id) {
-      return this._unsubscribeChannel("location", id);
-    }
-    async getNavigation() {
-      try {
-        return await this.api.callHandler("nav.read");
-      } catch (cause) {
-        throw new BridgeTransportError("nav.read bridge call failed", cause);
-      }
-    }
-    async subscribeNavigation(notify) {
-      return this._subscribeChannel("nav", notify);
-    }
-    async unsubscribeNavigation(id) {
-      return this._unsubscribeChannel("nav", id);
-    }
-    /// Shared subscribe path for any push channel — `car.status`,
-    /// `car.connection`, `media`, and future families.
-    /// The host returns `{success: true, data: {id}}` envelopes
-    /// (mirroring the `callApi` shape) so the bridge has one parsing
-    /// contract to rely on.
-    async _subscribeChannel(channel, notify) {
-      const events = ensureHostEvents();
-      const offEvent = events.on(channel, notify);
-      let envelope;
-      try {
-        envelope = await this.api.callHandler(`${channel}.subscribe`);
-      } catch (cause) {
-        offEvent();
-        throw new BridgeTransportError(`${channel}.subscribe bridge call failed`, cause);
-      }
-      const id = _extractId(envelope);
-      if (id === null) {
-        offEvent();
-        throw new BridgeTransportError(`${channel}.subscribe returned envelope without id`, envelope);
-      }
-      _subscriptions.set(`${channel}:${id}`, offEvent);
-      return { id };
-    }
-    async _unsubscribeChannel(channel, id) {
-      const key = `${channel}:${id}`;
-      const offEvent = _subscriptions.get(key);
-      _subscriptions.delete(key);
-      offEvent == null ? void 0 : offEvent();
-      try {
-        await this.api.callHandler(`${channel}.unsubscribe`, { id });
-      } catch (cause) {
-        throw new BridgeTransportError(`${channel}.unsubscribe bridge call failed`, cause);
-      }
-    }
   };
-  var _subscriptions = /* @__PURE__ */ new Map();
-  function _extractId(envelope) {
-    if (!envelope || typeof envelope !== "object") return null;
-    const e = envelope;
-    if (e.success === true && e.data && typeof e.data === "object") {
-      const id = e.data.id;
-      if (typeof id === "string" && id.length > 0) return id;
-    }
-    if (typeof e.id === "string" && e.id.length > 0) return e.id;
-    return null;
-  }
-  var CarStatusController = class {
+  var CAR_MAX_NAMES = 64;
+  var CarController = class {
     constructor(bridge) {
       __publicField(this, "bridge");
-      /// Cached `key set` of the last successfully-parsed payload —
-      /// sorted, joined by ``. Cheap to compare; safe to reuse
-      /// because `CarStatusSchema` is `.strict()` (no rename surprise).
-      __publicField(this, "_statusShape", null);
-      __publicField(this, "_connShape", null);
-      /// Page Visibility plumbing — installed lazily on the first
-      /// `onStatusChange` so SSR / non-DOM consumers don't pay for an
-      /// event listener that will never fire.
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_statusListeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_connListeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_lastWhilePaused", null);
-      /// Lazily-acquired subscription ids — null until first listener
-      /// registers; reused for every subsequent listener; released when
-      /// the last listener unsubscribes.
-      __publicField(this, "_statusSubId", null);
-      __publicField(this, "_connSubId", null);
-      /// Per-field read-count buffer used to back the schema-evolution
-      /// "is this field unused?" criterion (< 5% of active mini-apps
-      /// touch it across 90 rolling days). Counts are incremented
-      /// transparently as consumer code reads properties off the
-      /// CarStatus value via a Proxy. The host-side telemetry sink
-      /// that ingests these is wired in Phase 2 — until then, the
-      /// buffer is read-only via [_telemetrySnapshot] for tests.
-      __publicField(this, "_fieldReadCounts", /* @__PURE__ */ new Map());
+      /// Memoised identity. Cleared when the connection-state listener
+      /// observes `'disconnected'` so a swap-car flow picks up the new
+      /// brand/model on the next call.
+      __publicField(this, "_identityCache", null);
+      /// Local per-subscriptionId → listener routing for `car.signal`.
+      __publicField(this, "_signalRoutes", /* @__PURE__ */ new Map());
+      /// Local per-subscriptionId → listener routing for `car.connection`.
+      __publicField(this, "_connectionRoutes", /* @__PURE__ */ new Map());
+      /// Single shared bus listeners, installed once the first
+      /// subscribe lands. Storing the unsubscribe fn lets us tear the
+      /// page-global handler down only after every per-id route is gone.
+      __publicField(this, "_signalBusOff", null);
+      __publicField(this, "_connectionBusOff", null);
       this.bridge = bridge;
     }
-    /// Test-only: return a snapshot of the per-field read counts and
-    /// reset the internal buffer. Underscore-prefixed to mark as
-    /// non-stable surface; not part of `public-api.test.ts`'s lock list.
-    /// Will be replaced by a host-side telemetry-flush integration in
-    /// Phase 2.
-    _telemetrySnapshot() {
-      const out = {};
-      for (const [k, v] of this._fieldReadCounts) out[k] = v;
-      this._fieldReadCounts.clear();
-      return out;
+    // ── car.list ─────────────────────────────────────────────────────
+    async list(opts = {}) {
+      const payload = {};
+      if (opts.category !== void 0) payload.category = opts.category;
+      if (opts.threeDOnly !== void 0) payload.threeDOnly = opts.threeDOnly;
+      const raw = await this._call("car.list", payload);
+      return _parse(CarCatalogListSchema, raw, "car.list");
     }
-    /// One-shot read. Throws [CarStatusUnavailableError] if the bridge
-    /// doesn't implement the streaming surface (e.g., unit-test stub
-    /// or older host).
-    async getStatus() {
-      if (!isCarStatusBridge(this.bridge)) {
-        throw new CarStatusUnavailableError("bridge does not implement CarStatusBridge");
+    // ── car.read ─────────────────────────────────────────────────────
+    async read(names) {
+      if (names.length > CAR_MAX_NAMES) {
+        throw new Error(`signals.too_many_names: requested ${names.length}, max ${CAR_MAX_NAMES}`);
       }
-      const raw = await this.bridge.getCarStatus();
-      return this._parseStatus(raw);
+      const raw = await this._call("car.read", { names });
+      if (_isErrorEnvelope(raw)) {
+        throw new Error(`car.read returned error: ${_errString(raw)}`);
+      }
+      return _parse(CarReadResponseSchema, raw, "car.read");
     }
-    /// Subscribe to status deltas. Returns an unsubscribe fn — the
-    /// returned closure is idempotent (calling it twice is a no-op).
+    // ── car.subscribe / car.unsubscribe ──────────────────────────────
+    /// Subscribe to the host's name-keyed signal stream. Returns an
+    /// async unsubscribe closure — idempotent (calling twice is a
+    /// no-op). The optional `signal` aborts the subscription
+    /// synchronously when fired.
     ///
-    /// First call lazily installs the bridge subscription + the page-
-    /// visibility listener; last `off()` tears them down. So a
-    /// consumer that subscribes once and unsubscribes correctly leaves
-    /// no resources behind.
-    onStatusChange(listener) {
-      if (!isCarStatusBridge(this.bridge)) {
-        throw new CarStatusUnavailableError("bridge does not implement CarStatusBridge");
+    /// Rejects with `Error('signals.too_many_names')` when
+    /// `names.length > 64` so consumers don't pay for a round-trip to
+    /// see the host's `too_many_names` envelope.
+    async subscribe(opts) {
+      if (opts.names.length > CAR_MAX_NAMES) {
+        throw new Error("signals.too_many_names");
       }
-      const bridge = this.bridge;
-      this._statusListeners.add(listener);
-      this._installVisibility();
-      if (this._statusSubId === null) {
-        void bridge.subscribeCarStatus((raw) => this._dispatchStatus(raw)).then(({ id }) => {
-          this._statusSubId = id;
-        }).catch(() => {
-          this._statusListeners.delete(listener);
-        });
+      const idempotencyKey = _newUuid();
+      this._ensureSignalBus();
+      const raw = await this._call("car.subscribe", {
+        names: opts.names,
+        idempotencyKey
+      });
+      if (_isErrorEnvelope(raw)) {
+        throw new Error(`car.subscribe returned error: ${_errString(raw)}`);
       }
+      const parsed = _parse(CarSubscribeResponseSchema, raw, "car.subscribe");
+      const subscriptionId = parsed.subscriptionId;
+      this._signalRoutes.set(subscriptionId, opts.onEvent);
       let off = false;
-      return () => {
+      const unsubscribe = () => {
         if (off) return;
         off = true;
-        this._statusListeners.delete(listener);
-        if (this._statusListeners.size === 0 && this._statusSubId !== null) {
-          const id = this._statusSubId;
-          this._statusSubId = null;
-          void bridge.unsubscribeCarStatus(id).catch(() => {
-          });
+        this._signalRoutes.delete(subscriptionId);
+        this._maybeTearDownSignalBus();
+        void this._call("car.unsubscribe", { subscriptionId }).catch(() => {
+        });
+      };
+      if (opts.signal) {
+        if (opts.signal.aborted) {
+          unsubscribe();
+        } else {
+          opts.signal.addEventListener("abort", unsubscribe, { once: true });
         }
+      }
+      return unsubscribe;
+    }
+    // ── car.command ──────────────────────────────────────────────────
+    async command(actionId, args = {}, opts = {}) {
+      var _a;
+      const idempotencyKey = (_a = opts.idempotencyKey) != null ? _a : _newUuid();
+      const raw = await this._call("car.command", {
+        actionId,
+        args,
+        idempotencyKey
+      });
+      return _parse(CarCommandResponseSchema, raw, "car.command");
+    }
+    // ── car.identity ─────────────────────────────────────────────────
+    /// Returns the brand / model / 3D-asset descriptor. Memoised per
+    /// car for the lifetime of the controller — cleared automatically
+    /// when the connection-state subscriber observes
+    /// `'disconnected'`, so a swap-car flow picks up the new identity
+    /// on the next call.
+    async identity() {
+      if (this._identityCache) return this._identityCache;
+      const raw = await this._call("car.identity", {});
+      const parsed = _parse(CarIdentitySchema, raw, "car.identity");
+      this._identityCache = parsed;
+      return parsed;
+    }
+    // ── car.asset ────────────────────────────────────────────────────
+    /// Load a bundle-resident asset (3D model / texture) and return
+    /// its bytes already base64-decoded. Throws on a host-emitted error
+    /// envelope (`disallowed_path`, `asset_not_found`, `asset_too_large`).
+    async asset(path) {
+      const raw = await this._call("car.asset", { path });
+      if (_isErrorEnvelope(raw)) {
+        throw new Error(`car.asset returned error: ${_errString(raw)}`);
+      }
+      const parsed = _parse(CarAssetResponseSchema, raw, "car.asset");
+      return {
+        path: parsed.path,
+        contentType: parsed.contentType,
+        size: parsed.size,
+        bytes: _decodeBase64(parsed.bytesBase64)
       };
     }
-    /// Subscribe to host data-availability transitions. Same lifecycle
-    /// pattern as [onStatusChange] — lazy setup, refcounted teardown.
-    ///
-    /// NOT page-visibility-paused: a backgrounded mini-app still wants
-    /// to know if the data went stale, so the connection-banner can
-    /// be correct on resume. The volume here is tiny (≤1 event per
-    /// poll cycle).
-    onConnectionChange(listener) {
-      if (!isCarStatusBridge(this.bridge)) {
-        throw new CarStatusUnavailableError("bridge does not implement CarStatusBridge");
+    // ── car.connection.subscribe / unsubscribe ───────────────────────
+    /// Subscribe to host connection-state transitions. The host emits
+    /// the initial state on a microtask, then again on every flip.
+    /// On `'disconnected'` the identity cache is invalidated so a
+    /// later car swap re-fetches.
+    async connectionSubscribe(onChange) {
+      this._ensureConnectionBus();
+      const raw = await this._call("car.connection.subscribe", {});
+      if (_isErrorEnvelope(raw)) {
+        throw new Error(`car.connection.subscribe returned error: ${_errString(raw)}`);
       }
-      const bridge = this.bridge;
-      this._connListeners.add(listener);
-      if (this._connSubId === null) {
-        void bridge.subscribeCarConnectionState((raw) => this._dispatchConnection(raw)).then(({ id }) => {
-          this._connSubId = id;
-        }).catch(() => {
-          this._connListeners.delete(listener);
-        });
+      const subscriptionId = _extractSubscriptionId(raw);
+      if (!subscriptionId) {
+        throw new BridgeTransportError(
+          "car.connection.subscribe response missing subscriptionId",
+          raw
+        );
       }
+      const wrapped = (state) => {
+        if (state === "disconnected") this._identityCache = null;
+        onChange(state);
+      };
+      this._connectionRoutes.set(subscriptionId, wrapped);
       let off = false;
       return () => {
         if (off) return;
         off = true;
-        this._connListeners.delete(listener);
-        if (this._connListeners.size === 0 && this._connSubId !== null) {
-          const id = this._connSubId;
-          this._connSubId = null;
-          void bridge.unsubscribeCarConnectionState(id).catch(() => {
-          });
-        }
+        this._connectionRoutes.delete(subscriptionId);
+        this._maybeTearDownConnectionBus();
+        void this._call("car.connection.unsubscribe", { subscriptionId }).catch(() => {
+        });
       };
     }
     // ── Internals ────────────────────────────────────────────────────
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._statusListeners]) {
-            this._invokeSafe(l, buffered);
-          }
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
-    }
-    _dispatchStatus(raw) {
-      let parsed;
+    async _call(handler, payload) {
+      const api = _hostApi(this.bridge);
       try {
-        parsed = this._parseStatus(raw);
-      } catch (e) {
-        console.warn("[i99dash] dropped malformed car.status event:", e);
-        return;
-      }
-      if (this._hidden) {
-        this._lastWhilePaused = parsed;
-        return;
-      }
-      for (const l of [...this._statusListeners]) {
-        this._invokeSafe(l, parsed);
+        return await api.callHandler(handler, payload);
+      } catch (cause) {
+        throw new BridgeTransportError(`${handler} bridge call failed`, cause);
       }
     }
-    _dispatchConnection(raw) {
-      let parsed;
-      try {
-        parsed = this._parseConnection(raw);
-      } catch {
-        return;
-      }
-      for (const l of [...this._connListeners]) {
+    _ensureSignalBus() {
+      if (this._signalBusOff) return;
+      const events2 = ensureHostEvents();
+      this._signalBusOff = events2.on("car.signal", (payload) => {
+        const env = _parseSafe(CarSignalPushEnvelopeSchema, payload);
+        if (!env) return;
+        const route = this._signalRoutes.get(env.subscriptionId);
+        if (!route) return;
         try {
-          l(parsed);
+          route(env.data);
         } catch (e) {
-          console.error("[i99dash] connection listener threw:", e);
-        }
-      }
-    }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] car-status listener threw:", e);
-      }
-    }
-    _parseStatus(raw) {
-      const shape = _shapeFingerprint(raw);
-      let parsed;
-      if (shape !== null && shape === this._statusShape) {
-        parsed = raw;
-      } else {
-        const result = CarStatusSchema.safeParse(raw);
-        if (!result.success) {
-          throw new InvalidResponseError("car.status payload did not match schema", result.error);
-        }
-        this._statusShape = shape;
-        parsed = result.data;
-      }
-      return this._instrumentReads(parsed);
-    }
-    /// Wrap [s] in a Proxy whose `get` trap increments a per-field
-    /// counter when consumer code reads a property. Skips internal
-    /// JS lookups (Symbol keys, prototype methods) so React's
-    /// `Object.is` shallow-comparison doesn't pollute the count.
-    ///
-    /// The wrapped value is `===`-distinct from the underlying object
-    /// each time, but the values within are shared — JSON.stringify,
-    /// destructure, and Object.entries all work normally. A consumer
-    /// that calls `useMemo(() => ..., [status])` will re-run on every
-    /// event, which is the correct behaviour anyway since each event
-    /// represents a fresh push from the host.
-    _instrumentReads(s) {
-      const counts = this._fieldReadCounts;
-      return new Proxy(s, {
-        get(target, prop, receiver) {
-          var _a;
-          if (typeof prop === "string" && Object.prototype.hasOwnProperty.call(target, prop)) {
-            counts.set(prop, ((_a = counts.get(prop)) != null ? _a : 0) + 1);
-          }
-          return Reflect.get(target, prop, receiver);
+          console.error("[i99dash] car.signal listener threw:", e);
         }
       });
     }
-    _parseConnection(raw) {
-      const shape = _shapeFingerprint(raw);
-      if (shape !== null && shape === this._connShape) {
-        return raw;
-      }
-      const result = CarConnectionStateSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError("car.connection payload did not match schema", result.error);
-      }
-      this._connShape = shape;
-      return result.data;
+    _maybeTearDownSignalBus() {
+      var _a;
+      if (this._signalRoutes.size > 0) return;
+      (_a = this._signalBusOff) == null ? void 0 : _a.call(this);
+      this._signalBusOff = null;
+    }
+    _ensureConnectionBus() {
+      if (this._connectionBusOff) return;
+      const events2 = ensureHostEvents();
+      this._connectionBusOff = events2.on("car.connection", (payload) => {
+        const env = _parseSafe(CarConnectionPushEnvelopeSchema, payload);
+        if (!env) return;
+        const route = this._connectionRoutes.get(env.subscriptionId);
+        if (!route) return;
+        try {
+          route(env.state);
+        } catch (e) {
+          console.error("[i99dash] car.connection listener threw:", e);
+        }
+      });
+    }
+    _maybeTearDownConnectionBus() {
+      var _a;
+      if (this._connectionRoutes.size > 0) return;
+      (_a = this._connectionBusOff) == null ? void 0 : _a.call(this);
+      this._connectionBusOff = null;
     }
   };
-  function _shapeFingerprint(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
+  function _parse(schema, raw, label) {
+    const result = schema.safeParse(raw);
+    if (!result.success) {
+      throw new InvalidResponseError(`${label} payload did not match schema`, result.error);
+    }
+    return result.data;
   }
-  var ClimateController = class {
-    constructor(bridge) {
-      __publicField(this, "bridge");
-      __publicField(this, "_shape", null);
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_listeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_lastWhilePaused", null);
-      __publicField(this, "_subId", null);
-      this.bridge = bridge;
-    }
-    async getSnapshot() {
-      if (!isClimateBridge(this.bridge)) {
-        throw new ClimateUnavailableError("bridge does not implement ClimateBridge");
-      }
-      return this._parse(await this.bridge.getClimate());
-    }
-    onChange(listener) {
-      if (!isClimateBridge(this.bridge)) {
-        throw new ClimateUnavailableError("bridge does not implement ClimateBridge");
-      }
-      const bridge = this.bridge;
-      this._listeners.add(listener);
-      this._installVisibility();
-      if (this._subId === null) {
-        void bridge.subscribeClimate((raw) => this._dispatch(raw)).then(({ id }) => {
-          this._subId = id;
-        }).catch(() => {
-          this._listeners.delete(listener);
-        });
-      }
-      let off = false;
-      return () => {
-        if (off) return;
-        off = true;
-        this._listeners.delete(listener);
-        if (this._listeners.size === 0 && this._subId !== null) {
-          const id = this._subId;
-          this._subId = null;
-          void bridge.unsubscribeClimate(id).catch(() => {
-          });
-        }
-      };
-    }
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._listeners]) this._invokeSafe(l, buffered);
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
-    }
-    _dispatch(raw) {
-      let parsed;
-      try {
-        parsed = this._parse(raw);
-      } catch (e) {
-        console.warn("[i99dash] dropped malformed climate event:", e);
-        return;
-      }
-      if (this._hidden) {
-        this._lastWhilePaused = parsed;
-        return;
-      }
-      for (const l of [...this._listeners]) this._invokeSafe(l, parsed);
-    }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] climate listener threw:", e);
-      }
-    }
-    _parse(raw) {
-      const shape = _shapeFingerprint2(raw);
-      if (shape !== null && shape === this._shape) return raw;
-      const result = ClimateSnapshotSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError("climate payload did not match schema", result.error);
-      }
-      this._shape = shape;
-      return result.data;
-    }
-  };
-  function _shapeFingerprint2(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
+  function _parseSafe(schema, raw) {
+    const result = schema.safeParse(raw);
+    return result.success ? result.data : null;
   }
-  var ConnectivityController = class {
-    constructor(bridge) {
-      __publicField(this, "bridge");
-      __publicField(this, "_shape", null);
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_listeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_lastWhilePaused", null);
-      __publicField(this, "_subId", null);
-      this.bridge = bridge;
+  function _isErrorEnvelope(raw) {
+    return raw !== null && typeof raw === "object" && "error" in raw;
+  }
+  function _errString(raw) {
+    if (!raw || typeof raw !== "object") return String(raw);
+    const o = raw;
+    return JSON.stringify(o);
+  }
+  function _extractSubscriptionId(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const id = raw.subscriptionId;
+    return typeof id === "string" && id.length > 0 ? id : null;
+  }
+  function _newUuid() {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
     }
-    async getSnapshot() {
-      if (!isConnectivityBridge(this.bridge)) {
-        throw new ConnectivityUnavailableError("bridge does not implement ConnectivityBridge");
-      }
-      return this._parse(await this.bridge.getConnectivity());
+    let s = "";
+    for (let i = 0; i < 32; i++) {
+      const r = Math.random() * 16 | 0;
+      s += r.toString(16);
+      if (i === 7 || i === 11 || i === 15 || i === 19) s += "-";
     }
-    onChange(listener) {
-      if (!isConnectivityBridge(this.bridge)) {
-        throw new ConnectivityUnavailableError("bridge does not implement ConnectivityBridge");
-      }
-      const bridge = this.bridge;
-      this._listeners.add(listener);
-      this._installVisibility();
-      if (this._subId === null) {
-        void bridge.subscribeConnectivity((raw) => this._dispatch(raw)).then(({ id }) => {
-          this._subId = id;
-        }).catch(() => {
-          this._listeners.delete(listener);
-        });
-      }
-      let off = false;
-      return () => {
-        if (off) return;
-        off = true;
-        this._listeners.delete(listener);
-        if (this._listeners.size === 0 && this._subId !== null) {
-          const id = this._subId;
-          this._subId = null;
-          void bridge.unsubscribeConnectivity(id).catch(() => {
-          });
-        }
-      };
+    return s;
+  }
+  function _decodeBase64(b64) {
+    if (typeof atob === "function") {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
     }
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._listeners]) this._invokeSafe(l, buffered);
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
+    const g = globalThis;
+    if (g.Buffer) {
+      const buf = g.Buffer.from(b64, "base64");
+      return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
     }
-    _dispatch(raw) {
-      let parsed;
-      try {
-        parsed = this._parse(raw);
-      } catch (e) {
-        console.warn("[i99dash] dropped malformed connectivity event:", e);
-        return;
-      }
-      if (this._hidden) {
-        this._lastWhilePaused = parsed;
-        return;
-      }
-      for (const l of [...this._listeners]) this._invokeSafe(l, parsed);
+    throw new Error("no base64 decoder available \u2014 runtime missing atob and Buffer");
+  }
+  function _hostApi(bridge) {
+    const direct = bridge;
+    if (typeof direct.callHandler === "function") {
+      return direct;
     }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] connectivity listener threw:", e);
-      }
+    const internal = bridge;
+    if (internal.api && typeof internal.api.callHandler === "function") {
+      return internal.api;
     }
-    _parse(raw) {
-      const shape = _shapeFingerprint3(raw);
-      if (shape !== null && shape === this._shape) return raw;
-      const result = ConnectivitySnapshotSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError("connectivity payload did not match schema", result.error);
-      }
-      this._shape = shape;
-      return result.data;
-    }
-  };
-  function _shapeFingerprint3(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
+    throw new BridgeTransportError(
+      "bridge does not expose a callHandler \u2014 cannot reach v2 car.* handlers",
+      bridge
+    );
   }
   var FamilyOpError = class extends SDKError {
     constructor(familyId, op, code, message) {
@@ -5439,6 +4851,18 @@
       `host returned a payload that doesn't match the {success, data|error} envelope`
     );
   }
+  async function invokeFamily(bridge, familyId, op, params, opts = {}) {
+    var _a;
+    if (!isFamilyBridge(bridge)) {
+      throw new FamilyUnavailableError(
+        familyId,
+        `bridge does not implement FamilyBridge \u2014 host build is too old`
+      );
+    }
+    const key = (_a = opts.idempotencyKey) != null ? _a : newIdempotencyKey();
+    const raw = await bridge.callFamily(familyId, op, params, key);
+    return decodeFamilyEnvelope(familyId, op, raw);
+  }
   var BaseFamilyController = class {
     constructor(bridge, familyId) {
       __publicField(this, "bridge");
@@ -5453,10 +4877,7 @@
       this.familyId = familyId;
     }
     async invoke(op, params, opts = {}) {
-      var _a;
-      const key = (_a = opts.idempotencyKey) != null ? _a : newIdempotencyKey();
-      const raw = await this.bridge.callFamily(this.familyId, op, params, key);
-      return decodeFamilyEnvelope(this.familyId, op, raw);
+      return invokeFamily(this.bridge, this.familyId, op, params, opts);
     }
     /// Subscribe to the host's event channel for this family. Calls
     /// the family's `subscribe` op (returning `{id}`), registers a
@@ -5476,8 +4897,8 @@
     /// surface every other family op uses; consumers don't need a
     /// separate error model for subscriptions.
     async subscribe(handler) {
-      const events = ensureHostEvents();
-      const offLocal = events.on(this.familyId, handler);
+      const events2 = ensureHostEvents();
+      const offLocal = events2.on(this.familyId, handler);
       let hostId;
       try {
         const data = await this.invoke("subscribe", {});
@@ -5502,8 +4923,8 @@
     }
     /**
      * Declare that [packageName] should auto-launch on cold boot.
-     * Idempotent on `(user, vin, app, packageName)` — calling `set`
-     * again with the same `packageName` replaces the prior row.
+     * Idempotent on `(user, deviceId, app, packageName)` — calling
+     * `set` again with the same `packageName` replaces the prior row.
      */
     async set(packageName, opts = {}, invokeOpts = {}) {
       return this.invoke(
@@ -5518,7 +4939,7 @@
     }
     /**
      * Every boot declaration this mini-app has set under the active
-     * (user, vin). Other mini-apps' rows are not visible.
+     * (user, deviceId). Other mini-apps' rows are not visible.
      */
     async list(invokeOpts = {}) {
       var _a;
@@ -5741,8 +5162,7 @@
     /**
      * Cluster-targeted launch. Same shape as {@link launch} but the
      * host enforces that the displayId resolves to a `cluster` role
-     * (driver-instrument virtual display). Requires
-     * `pkg.launch.cluster` in `manifest.permissions[]`.
+     * (driver-instrument virtual display).
      *
      * Returns `{ok: false, path: 'denied', error: 'role:expected_cluster_got_<role>'}`
      * if the displayId belongs to ivi / passenger / unknown. The
@@ -5780,658 +5200,97 @@
       return this.invoke("stop", { packageName }, invokeOpts);
     }
   };
-  var LocationController = class {
-    /** Kept on the constructor for signature compat — the SDK builds
-     *  this controller via the same factory shape every other family
-     *  uses. The bridge isn't consulted by the new geolocation path. */
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    constructor(_bridge) {
-      __publicField(this, "_shape", null);
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_listeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_watchId", null);
-      __publicField(this, "_lastWhilePaused", null);
-    }
-    /// One-shot fix. Resolves with the current `LocationSnapshot` or
-    /// rejects with `LocationUnavailableError` when:
-    ///   * `navigator.geolocation` is missing (e.g. SSR / unit tests),
-    ///   * the WebView denied the permission (manifest didn't declare
-    ///     `location.read`, or the user revoked at the OS level), or
-    ///   * the host took longer than 10 s to return a fix.
-    async getSnapshot() {
-      const geo = _geo();
-      if (geo === null) {
-        throw new LocationUnavailableError("navigator.geolocation not available");
-      }
-      const position = await new Promise((resolve, reject) => {
-        geo.getCurrentPosition(
-          resolve,
-          (err) => reject(_geoError(err)),
-          // High accuracy: GNSS fix preferred over wifi/cell. timeout
-          // 10s — same budget the legacy bridge used; matches the
-          // user's perception window for "show me where I am". Cached
-          // fix up to 30s old is fine — it's location for a weather
-          // refresh / navigation ETA, not surveying.
-          { enableHighAccuracy: true, timeout: 1e4, maximumAge: 3e4 }
-        );
-      });
-      return this._parse(_positionToSnapshot(position));
-    }
-    /// Subscribe to position updates. The SDK fans out a single
-    /// `watchPosition` call to N listeners, then unsubscribes from
-    /// the platform when the last listener leaves — same lifecycle
-    /// the legacy bridge offered, just sourced from the standard
-    /// API. The returned cleanup is idempotent.
-    onChange(listener) {
-      const geo = _geo();
-      if (geo === null) {
-        throw new LocationUnavailableError("navigator.geolocation not available");
-      }
-      this._listeners.add(listener);
-      this._installVisibility();
-      if (this._watchId === null) {
-        this._watchId = geo.watchPosition(
-          (position) => {
-            let parsed;
-            try {
-              parsed = this._parse(_positionToSnapshot(position));
-            } catch (e) {
-              console.warn("[i99dash] dropped malformed location event:", e);
-              return;
-            }
-            if (this._hidden) {
-              this._lastWhilePaused = parsed;
-              return;
-            }
-            for (const l of [...this._listeners]) this._invokeSafe(l, parsed);
-          },
-          (err) => {
-            console.warn("[i99dash] watchPosition error:", err.message);
-          },
-          { enableHighAccuracy: true, maximumAge: 3e4 }
-        );
-      }
-      let off = false;
-      return () => {
-        if (off) return;
-        off = true;
-        this._listeners.delete(listener);
-        if (this._listeners.size === 0 && this._watchId !== null) {
-          const id = this._watchId;
-          this._watchId = null;
-          geo.clearWatch(id);
-        }
-      };
-    }
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._listeners]) this._invokeSafe(l, buffered);
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
-    }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] location listener threw:", e);
-      }
-    }
-    _parse(raw) {
-      const shape = _shapeFingerprint4(raw);
-      if (shape !== null && shape === this._shape) return raw;
-      const result = LocationSnapshotSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError("location payload did not match schema", result.error);
-      }
-      this._shape = shape;
-      return result.data;
+  var SURFACE_ROUTE_REGEX = /^\/[A-Za-z0-9._\-/]*(\?[A-Za-z0-9._\-/=&%~+,:;*!#]*)?$/;
+  var SURFACE_ROUTE_PATH_ONLY_REGEX = /^\/[A-Za-z0-9._\-/]*$/;
+  var SurfaceRouteError = class extends SDKError {
+    constructor(message) {
+      super(
+        "SurfaceRouteError",
+        "SURFACE_ROUTE_INVALID",
+        "docs/api-ref/surface.md#surface_route_invalid",
+        message
+      );
     }
   };
-  function _geo() {
-    var _a;
-    if (typeof navigator === "undefined") return null;
-    return (_a = navigator.geolocation) != null ? _a : null;
-  }
-  function _positionToSnapshot(p) {
-    const c = p.coords;
-    return {
-      lat: c.latitude,
-      lng: c.longitude,
-      heading: typeof c.heading === "number" && !Number.isNaN(c.heading) ? c.heading : null,
-      speedMps: typeof c.speed === "number" && !Number.isNaN(c.speed) ? c.speed : null,
-      accuracyM: typeof c.accuracy === "number" && Number.isFinite(c.accuracy) ? c.accuracy : null,
-      at: new Date(p.timestamp).toISOString()
-    };
-  }
-  function _geoError(err) {
-    switch (err.code) {
-      case 1:
-        return new LocationUnavailableError(`permission denied: ${err.message}`);
-      case 2:
-        return new LocationUnavailableError(`position unavailable: ${err.message}`);
-      case 3:
-        return new LocationUnavailableError(`timeout: ${err.message}`);
-      default:
-        return new LocationUnavailableError(err.message || "geolocation failed");
-    }
-  }
-  function _shapeFingerprint4(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
-  }
-  var MediaController = class {
+  var SurfaceController = class extends BaseFamilyController {
     constructor(bridge) {
-      __publicField(this, "bridge");
-      /// Cached `key set` of the last successfully-parsed payload —
-      /// same fast-path as [CarStatusController].
-      __publicField(this, "_shape", null);
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_listeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_lastWhilePaused", null);
-      __publicField(this, "_subId", null);
-      this.bridge = bridge;
+      super(bridge, "surface");
     }
-    /// One-shot read. Throws [MediaUnavailableError] if the bridge
-    /// doesn't ship the media surface (older host, unit-test stub).
-    async getSnapshot() {
-      if (!isMediaBridge(this.bridge)) {
-        throw new MediaUnavailableError("bridge does not implement MediaBridge");
-      }
-      const raw = await this.bridge.getMedia();
-      return this._parse(raw);
+    /// Open a surface on the requested display. The host tries
+    /// `Presentation.show()` first and auto-falls-back to a
+    /// `TYPE_APPLICATION_OVERLAY` view if denied. Throws
+    /// `FamilyOpError` with code `surface_denied` if neither path
+    /// works (e.g. permission revoked, hardware doesn't support a
+    /// secondary surface).
+    async create(req, opts = {}) {
+      return this.invoke(
+        "create",
+        { displayId: req.displayId, ...req.route ? { route: req.route } : {} },
+        opts
+      );
     }
-    /// Subscribe to media events. Returns an idempotent unsubscribe fn.
-    /// First call lazily installs the bridge subscription + the
-    /// page-visibility listener; last `off()` tears them down.
-    onChange(listener) {
-      if (!isMediaBridge(this.bridge)) {
-        throw new MediaUnavailableError("bridge does not implement MediaBridge");
-      }
-      const bridge = this.bridge;
-      this._listeners.add(listener);
-      this._installVisibility();
-      if (this._subId === null) {
-        void bridge.subscribeMedia((raw) => this._dispatch(raw)).then(({ id }) => {
-          this._subId = id;
-        }).catch(() => {
-          this._listeners.delete(listener);
-        });
-      }
-      let off = false;
-      return () => {
-        if (off) return;
-        off = true;
-        this._listeners.delete(listener);
-        if (this._listeners.size === 0 && this._subId !== null) {
-          const id = this._subId;
-          this._subId = null;
-          void bridge.unsubscribeMedia(id).catch(() => {
-          });
-        }
-      };
+    /// Navigate the surface to a new route within the mini-app
+    /// bundle. Same allowlist rules as the primary WebView's
+    /// navigation gate apply; off-bundle URLs are rejected at the
+    /// host.
+    async navigate(req, opts = {}) {
+      return this.invoke(
+        "navigate",
+        { surfaceId: req.surfaceId, route: req.route },
+        opts
+      );
     }
-    // ── Internals ────────────────────────────────────────────────────
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._listeners]) {
-            this._invokeSafe(l, buffered);
-          }
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
+    /// Tear down a previously-opened surface.
+    async destroy(req, opts = {}) {
+      return this.invoke("destroy", { surfaceId: req.surfaceId }, opts);
     }
-    _dispatch(raw) {
-      let parsed;
-      try {
-        parsed = this._parse(raw);
-      } catch (e) {
-        console.warn("[i99dash] dropped malformed media event:", e);
-        return;
-      }
-      if (this._hidden) {
-        this._lastWhilePaused = parsed;
-        return;
-      }
-      for (const l of [...this._listeners]) {
-        this._invokeSafe(l, parsed);
-      }
+    /// List currently-open surfaces this mini-app owns.
+    async list(opts = {}) {
+      const data = await this.invoke("list", {}, opts);
+      return data.surfaces;
     }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] media listener threw:", e);
+    /// Build a route string that's guaranteed to pass the host's
+    /// `surface.create` validation. The path is checked against the
+    /// bundle-relative regex; params are URL-encoded with an extra
+    /// pass over `'` `(` `)` (left raw by `encodeURIComponent` but
+    /// rejected by the host) so the final route always matches
+    /// [SURFACE_ROUTE_REGEX].
+    ///
+    ///     SurfaceController.buildRoute('/cluster.html', { layout: enc });
+    ///     // → '/cluster.html?layout=...'
+    ///
+    /// Throws [SurfaceRouteError] if [path] is malformed (must start
+    /// with `/` and only contain `[A-Za-z0-9._\-/]`). Use a try /
+    /// catch if `path` originates in user input.
+    static buildRoute(path, params) {
+      if (typeof path !== "string" || path.length === 0) {
+        throw new SurfaceRouteError(`route path must be a non-empty string`);
       }
-    }
-    _parse(raw) {
-      const shape = _shapeFingerprint5(raw);
-      if (shape !== null && shape === this._shape) {
-        return raw;
+      if (!path.startsWith("/")) {
+        throw new SurfaceRouteError(`route path must start with '/' \u2014 got '${path}'`);
       }
-      const result = MediaSnapshotSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError("media payload did not match schema", result.error);
+      if (!SURFACE_ROUTE_PATH_ONLY_REGEX.test(path)) {
+        throw new SurfaceRouteError(
+          `route path '${path}' contains characters outside [A-Za-z0-9._\\-/]`
+        );
       }
-      this._shape = shape;
-      return result.data;
+      const pairs = params ? Object.entries(params).filter(([, v]) => v !== null && v !== void 0) : [];
+      if (pairs.length === 0) return path;
+      const qs = pairs.map(([k, v]) => `${k}=${encodeHostQueryValue(String(v))}`).join("&");
+      const route = `${path}?${qs}`;
+      if (!SURFACE_ROUTE_REGEX.test(route)) {
+        throw new SurfaceRouteError(
+          `built route '${route}' failed host regex \u2014 open an SDK issue if you see this`
+        );
+      }
+      return route;
     }
   };
-  function _shapeFingerprint5(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
-  }
-  var NavigationController = class {
-    constructor(bridge) {
-      __publicField(this, "bridge");
-      __publicField(this, "_shape", null);
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_listeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_lastWhilePaused", null);
-      __publicField(this, "_subId", null);
-      this.bridge = bridge;
-    }
-    async getSnapshot() {
-      if (!isNavigationBridge(this.bridge)) {
-        throw new NavigationUnavailableError("bridge does not implement NavigationBridge");
-      }
-      return this._parse(await this.bridge.getNavigation());
-    }
-    onChange(listener) {
-      if (!isNavigationBridge(this.bridge)) {
-        throw new NavigationUnavailableError("bridge does not implement NavigationBridge");
-      }
-      const bridge = this.bridge;
-      this._listeners.add(listener);
-      this._installVisibility();
-      if (this._subId === null) {
-        void bridge.subscribeNavigation((raw) => this._dispatch(raw)).then(({ id }) => {
-          this._subId = id;
-        }).catch(() => {
-          this._listeners.delete(listener);
-        });
-      }
-      let off = false;
-      return () => {
-        if (off) return;
-        off = true;
-        this._listeners.delete(listener);
-        if (this._listeners.size === 0 && this._subId !== null) {
-          const id = this._subId;
-          this._subId = null;
-          void bridge.unsubscribeNavigation(id).catch(() => {
-          });
-        }
-      };
-    }
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._listeners]) this._invokeSafe(l, buffered);
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
-    }
-    _dispatch(raw) {
-      let parsed;
-      try {
-        parsed = this._parse(raw);
-      } catch (e) {
-        console.warn("[i99dash] dropped malformed nav event:", e);
-        return;
-      }
-      if (this._hidden) {
-        this._lastWhilePaused = parsed;
-        return;
-      }
-      for (const l of [...this._listeners]) this._invokeSafe(l, parsed);
-    }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] nav listener threw:", e);
-      }
-    }
-    _parse(raw) {
-      const shape = _shapeFingerprint6(raw);
-      if (shape !== null && shape === this._shape) return raw;
-      const result = NavigationSnapshotSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError("nav payload did not match schema", result.error);
-      }
-      this._shape = shape;
-      return result.data;
-    }
-  };
-  function _shapeFingerprint6(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
-  }
-  var SystemController = class {
-    constructor(bridge) {
-      __publicField(this, "bridge");
-      __publicField(this, "_shape", null);
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_listeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_lastWhilePaused", null);
-      __publicField(this, "_subId", null);
-      this.bridge = bridge;
-    }
-    async getSnapshot() {
-      if (!isSystemBridge(this.bridge)) {
-        throw new SystemUnavailableError("bridge does not implement SystemBridge");
-      }
-      return this._parse(await this.bridge.getSystem());
-    }
-    onChange(listener) {
-      if (!isSystemBridge(this.bridge)) {
-        throw new SystemUnavailableError("bridge does not implement SystemBridge");
-      }
-      const bridge = this.bridge;
-      this._listeners.add(listener);
-      this._installVisibility();
-      if (this._subId === null) {
-        void bridge.subscribeSystem((raw) => this._dispatch(raw)).then(({ id }) => {
-          this._subId = id;
-        }).catch(() => {
-          this._listeners.delete(listener);
-        });
-      }
-      let off = false;
-      return () => {
-        if (off) return;
-        off = true;
-        this._listeners.delete(listener);
-        if (this._listeners.size === 0 && this._subId !== null) {
-          const id = this._subId;
-          this._subId = null;
-          void bridge.unsubscribeSystem(id).catch(() => {
-          });
-        }
-      };
-    }
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._listeners]) this._invokeSafe(l, buffered);
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
-    }
-    _dispatch(raw) {
-      let parsed;
-      try {
-        parsed = this._parse(raw);
-      } catch (e) {
-        console.warn("[i99dash] dropped malformed system event:", e);
-        return;
-      }
-      if (this._hidden) {
-        this._lastWhilePaused = parsed;
-        return;
-      }
-      for (const l of [...this._listeners]) this._invokeSafe(l, parsed);
-    }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] system listener threw:", e);
-      }
-    }
-    _parse(raw) {
-      const shape = _shapeFingerprint7(raw);
-      if (shape !== null && shape === this._shape) return raw;
-      const result = SystemSnapshotSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError("system payload did not match schema", result.error);
-      }
-      this._shape = shape;
-      return result.data;
-    }
-  };
-  function _shapeFingerprint7(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
-  }
-  var VehicleDiagnosticsController = class {
-    constructor(bridge) {
-      __publicField(this, "bridge");
-      __publicField(this, "_shape", null);
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_listeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_lastWhilePaused", null);
-      __publicField(this, "_subId", null);
-      this.bridge = bridge;
-    }
-    async getSnapshot() {
-      if (!isVehicleDiagnosticsBridge(this.bridge)) {
-        throw new VehicleDiagnosticsUnavailableError(
-          "bridge does not implement VehicleDiagnosticsBridge"
-        );
-      }
-      return this._parse(await this.bridge.getVehicleDiagnostics());
-    }
-    onChange(listener) {
-      if (!isVehicleDiagnosticsBridge(this.bridge)) {
-        throw new VehicleDiagnosticsUnavailableError(
-          "bridge does not implement VehicleDiagnosticsBridge"
-        );
-      }
-      const bridge = this.bridge;
-      this._listeners.add(listener);
-      this._installVisibility();
-      if (this._subId === null) {
-        void bridge.subscribeVehicleDiagnostics((raw) => this._dispatch(raw)).then(({ id }) => {
-          this._subId = id;
-        }).catch(() => {
-          this._listeners.delete(listener);
-        });
-      }
-      let off = false;
-      return () => {
-        if (off) return;
-        off = true;
-        this._listeners.delete(listener);
-        if (this._listeners.size === 0 && this._subId !== null) {
-          const id = this._subId;
-          this._subId = null;
-          void bridge.unsubscribeVehicleDiagnostics(id).catch(() => {
-          });
-        }
-      };
-    }
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._listeners]) this._invokeSafe(l, buffered);
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
-    }
-    _dispatch(raw) {
-      let parsed;
-      try {
-        parsed = this._parse(raw);
-      } catch (e) {
-        console.warn("[i99dash] dropped malformed vehicle.diagnostics event:", e);
-        return;
-      }
-      if (this._hidden) {
-        this._lastWhilePaused = parsed;
-        return;
-      }
-      for (const l of [...this._listeners]) this._invokeSafe(l, parsed);
-    }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] vehicle.diagnostics listener threw:", e);
-      }
-    }
-    _parse(raw) {
-      const shape = _shapeFingerprint8(raw);
-      if (shape !== null && shape === this._shape) return raw;
-      const result = VehicleDiagnosticsSnapshotSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError(
-          "vehicle.diagnostics payload did not match schema",
-          result.error
-        );
-      }
-      this._shape = shape;
-      return result.data;
-    }
-  };
-  function _shapeFingerprint8(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
-  }
-  var VehicleEnvironmentController = class {
-    constructor(bridge) {
-      __publicField(this, "bridge");
-      __publicField(this, "_shape", null);
-      __publicField(this, "_visibilityInstalled", false);
-      __publicField(this, "_hidden", false);
-      __publicField(this, "_listeners", /* @__PURE__ */ new Set());
-      __publicField(this, "_lastWhilePaused", null);
-      __publicField(this, "_subId", null);
-      this.bridge = bridge;
-    }
-    async getSnapshot() {
-      if (!isVehicleEnvironmentBridge(this.bridge)) {
-        throw new VehicleEnvironmentUnavailableError(
-          "bridge does not implement VehicleEnvironmentBridge"
-        );
-      }
-      return this._parse(await this.bridge.getVehicleEnvironment());
-    }
-    onChange(listener) {
-      if (!isVehicleEnvironmentBridge(this.bridge)) {
-        throw new VehicleEnvironmentUnavailableError(
-          "bridge does not implement VehicleEnvironmentBridge"
-        );
-      }
-      const bridge = this.bridge;
-      this._listeners.add(listener);
-      this._installVisibility();
-      if (this._subId === null) {
-        void bridge.subscribeVehicleEnvironment((raw) => this._dispatch(raw)).then(({ id }) => {
-          this._subId = id;
-        }).catch(() => {
-          this._listeners.delete(listener);
-        });
-      }
-      let off = false;
-      return () => {
-        if (off) return;
-        off = true;
-        this._listeners.delete(listener);
-        if (this._listeners.size === 0 && this._subId !== null) {
-          const id = this._subId;
-          this._subId = null;
-          void bridge.unsubscribeVehicleEnvironment(id).catch(() => {
-          });
-        }
-      };
-    }
-    _installVisibility() {
-      if (this._visibilityInstalled) return;
-      this._visibilityInstalled = true;
-      if (typeof document === "undefined") return;
-      const onChange = () => {
-        this._hidden = document.hidden;
-        if (!this._hidden && this._lastWhilePaused !== null) {
-          const buffered = this._lastWhilePaused;
-          this._lastWhilePaused = null;
-          for (const l of [...this._listeners]) this._invokeSafe(l, buffered);
-        }
-      };
-      document.addEventListener("visibilitychange", onChange);
-    }
-    _dispatch(raw) {
-      let parsed;
-      try {
-        parsed = this._parse(raw);
-      } catch (e) {
-        console.warn("[i99dash] dropped malformed vehicle.environment event:", e);
-        return;
-      }
-      if (this._hidden) {
-        this._lastWhilePaused = parsed;
-        return;
-      }
-      for (const l of [...this._listeners]) this._invokeSafe(l, parsed);
-    }
-    _invokeSafe(l, s) {
-      try {
-        l(s);
-      } catch (e) {
-        console.error("[i99dash] vehicle.environment listener threw:", e);
-      }
-    }
-    _parse(raw) {
-      const shape = _shapeFingerprint9(raw);
-      if (shape !== null && shape === this._shape) return raw;
-      const result = VehicleEnvironmentSnapshotSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError(
-          "vehicle.environment payload did not match schema",
-          result.error
-        );
-      }
-      this._shape = shape;
-      return result.data;
-    }
-  };
-  function _shapeFingerprint9(raw) {
-    if (raw === null || typeof raw !== "object") return null;
-    const keys = Object.keys(raw).sort();
-    return keys.join("");
+  function encodeHostQueryValue(value) {
+    return encodeURIComponent(value).replace(
+      /[()']/g,
+      (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+    );
   }
   var PermissionDeniedAggregator = class {
     constructor() {
@@ -6504,57 +5363,11 @@
       );
     });
   }
-  var SurfaceController = class extends BaseFamilyController {
-    constructor(bridge) {
-      super(bridge, "surface");
-    }
-    /// Open a surface on the requested display. The host tries
-    /// `Presentation.show()` first and auto-falls-back to a
-    /// `TYPE_APPLICATION_OVERLAY` view if denied. Throws
-    /// `FamilyOpError` with code `surface_denied` if neither path
-    /// works (e.g. permission revoked, hardware doesn't support a
-    /// secondary surface).
-    async create(req, opts = {}) {
-      return this.invoke(
-        "create",
-        { displayId: req.displayId, ...req.route ? { route: req.route } : {} },
-        opts
-      );
-    }
-    /// Navigate the surface to a new route within the mini-app
-    /// bundle. Same allowlist rules as the primary WebView's
-    /// navigation gate apply; off-bundle URLs are rejected at the
-    /// host.
-    async navigate(req, opts = {}) {
-      return this.invoke(
-        "navigate",
-        { surfaceId: req.surfaceId, route: req.route },
-        opts
-      );
-    }
-    /// Tear down a previously-opened surface.
-    async destroy(req, opts = {}) {
-      return this.invoke("destroy", { surfaceId: req.surfaceId }, opts);
-    }
-    /// List currently-open surfaces this mini-app owns.
-    async list(opts = {}) {
-      const data = await this.invoke("list", {}, opts);
-      return data.surfaces;
-    }
-  };
   var DEFAULT_TIMEOUT_MS = 1e4;
   var MiniAppClient = class _MiniAppClient {
     constructor(bridge) {
       __publicField(this, "bridge");
       __publicField(this, "_car");
-      __publicField(this, "_media");
-      __publicField(this, "_climate");
-      __publicField(this, "_vehicleDiagnostics");
-      __publicField(this, "_vehicleEnvironment");
-      __publicField(this, "_system");
-      __publicField(this, "_connectivity");
-      __publicField(this, "_location");
-      __publicField(this, "_navigation");
       __publicField(this, "_display");
       __publicField(this, "_surface");
       __publicField(this, "_gesture");
@@ -6565,81 +5378,19 @@
       __publicField(this, "_permissionDenied", new PermissionDeniedAggregator());
       this.bridge = bridge;
     }
-    /// Real-time car status surface. Lazy — the controller and any
-    /// underlying bridge subscriptions are not created until the
-    /// consumer first calls `client.car.getStatus()` or
-    /// `client.car.onStatusChange(...)`.
+    /// Unified car-data surface. Wraps every `car.*` bridge handler
+    /// the host exposes via v2 `CarBridgeService`: `list`, `read`,
+    /// `subscribe`, `command`, `identity`, `asset`,
+    /// `connectionSubscribe`. Read by name, write by `actionId` — see
+    /// the host's per-brand public catalog for the full name list.
     ///
-    /// Throws `CarStatusUnavailableError` from those methods if the
-    /// underlying bridge doesn't implement `CarStatusBridge` (e.g.,
-    /// unit-test stub or older host).
+    /// Lazy — instance is not created until first access. Throws
+    /// `BridgeTransportError` from individual methods when the bridge
+    /// doesn't ship `callHandler` (older host pre-v2, plain test stub).
     get car() {
       var _a;
-      (_a = this._car) != null ? _a : this._car = new CarStatusController(this.bridge);
+      (_a = this._car) != null ? _a : this._car = new CarController(this.bridge);
       return this._car;
-    }
-    /// Media surface. Same lazy-construction + capability-check pattern
-    /// as [car]. Throws `MediaUnavailableError` from `getSnapshot()` /
-    /// `onChange()` when the bridge doesn't ship the `media.read`
-    /// family. Use `await client.has('media.read')` to feature-detect
-    /// at app start.
-    get media() {
-      var _a;
-      (_a = this._media) != null ? _a : this._media = new MediaController(this.bridge);
-      return this._media;
-    }
-    /// Cabin-climate surface (`climate.read` scope). Throws
-    /// `ClimateUnavailableError` when the bridge lacks the family.
-    get climate() {
-      var _a;
-      (_a = this._climate) != null ? _a : this._climate = new ClimateController(this.bridge);
-      return this._climate;
-    }
-    /// Vehicle-diagnostics surface (`vehicle.diagnostics` scope).
-    /// Read-only tire pressure / gear / coarsened odometer.
-    get vehicleDiagnostics() {
-      var _a;
-      (_a = this._vehicleDiagnostics) != null ? _a : this._vehicleDiagnostics = new VehicleDiagnosticsController(this.bridge);
-      return this._vehicleDiagnostics;
-    }
-    /// Vehicle-environment surface (`vehicle.environment` scope).
-    /// AQI / PM2.5 / ambient light. Distinct from diagnostics so an
-    /// AQI widget doesn't have to over-claim diagnostic permissions.
-    get vehicleEnvironment() {
-      var _a;
-      (_a = this._vehicleEnvironment) != null ? _a : this._vehicleEnvironment = new VehicleEnvironmentController(this.bridge);
-      return this._vehicleEnvironment;
-    }
-    /// Host-system surface (`system.read` scope). OTA status, units,
-    /// display brightness — keeps mini-app UI in sync with host UI.
-    get system() {
-      var _a;
-      (_a = this._system) != null ? _a : this._system = new SystemController(this.bridge);
-      return this._system;
-    }
-    /// Connectivity surface (`connectivity.read` scope). Network type
-    /// + paired-device count for graceful-degradation UIs.
-    get connectivity() {
-      var _a;
-      (_a = this._connectivity) != null ? _a : this._connectivity = new ConnectivityController(this.bridge);
-      return this._connectivity;
-    }
-    /// Location surface (`location.read` scope). PII tier — gated by
-    /// manifest declaration AND the host's consent prompt. The host
-    /// returns `permission_denied` envelopes (forwarded to
-    /// `client.onPermissionDenied`) when consent is missing.
-    get location() {
-      var _a;
-      (_a = this._location) != null ? _a : this._location = new LocationController(this.bridge);
-      return this._location;
-    }
-    /// Navigation surface (`nav.read` scope). PII tier — same gates as
-    /// `location`. Reveals destinations the user picked; intended for
-    /// nav-companion mini-apps that opt in.
-    get navigation() {
-      var _a;
-      (_a = this._navigation) != null ? _a : this._navigation = new NavigationController(this.bridge);
-      return this._navigation;
     }
     /// Display enumeration (`display.read` scope, tier-1). Returns the
     /// list of addressable displays — the head unit's primary IVI, the
@@ -6781,10 +5532,7 @@
       const bridge = this.bridge;
       if (!isCapabilitiesBridge(bridge)) {
         const families = [];
-        const b = bridge;
-        if (typeof b.getCarStatus === "function" && typeof b.subscribeCarStatus === "function") {
-          families.push("car.status");
-        }
+        if (isCarBridge(bridge)) families.push("car");
         this._capsCache = { bridgeVersion: "unknown", families };
         return this._capsCache;
       }
@@ -6808,10 +5556,29 @@
     ///
     /// Idiomatic use:
     ///
-    ///   if (await client.has('media.read')) { ... } else { ... }
+    ///   if (await client.has('car')) { ... } else { ... }
     async has(scope) {
       const caps = await this.capabilities();
       return caps.families.includes(scope);
+    }
+    /// One-shot family-op invoke. Use this when the family / op pair
+    /// does not have a typed wrapper on this client — probe apps
+    /// (bridge-doctor), diagnostics, or a host that ships a new family
+    /// ahead of the SDK landing its typed controller. For documented
+    /// families, prefer the typed accessors (`client.surface.create`,
+    /// `client.display.list`, etc.) — they carry full type information
+    /// for params and return shapes.
+    ///
+    /// Throws `FamilyUnavailableError` if the host's bridge doesn't
+    /// ship the family-call surface (very old hosts), and
+    /// `FamilyOpError` on a `{success: false}` envelope so consumers
+    /// can branch on `err.errorCode`.
+    ///
+    ///     const data = await client.callFamily<{ ok: true }>(
+    ///       'pkg', 'launch_cluster', { packageName: 'x.y' },
+    ///     );
+    async callFamily(familyId, op, params, opts = {}) {
+      return invokeFamily(this.bridge, familyId, op, params, opts);
     }
     /// Subscribe an analytics-style handler to every `permission_denied`
     /// failure the SDK observes — across `callApi` and (in a future
@@ -6820,8 +5587,7 @@
     ///
     /// `scope` argument forwarded to the listener identifies which
     /// surface produced the denial — e.g. `callApi:/api/v1/foo`,
-    /// `media.read`. App code typically forwards to its analytics
-    /// pipeline:
+    /// `car`. App code typically forwards to its analytics pipeline:
     ///
     ///   client.onPermissionDenied(scope => analytics.track('denied', { scope }));
     onPermissionDenied(listener) {
@@ -6829,7 +5595,93 @@
     }
   };
 
+  // ../_shared/l5compat.js
+  function _resolveHost() {
+    if (typeof globalThis === "undefined") return null;
+    const branded = globalThis.__i99dashHost;
+    if (branded && typeof branded.callHandler === "function") return branded;
+    const legacy = globalThis.flutter_inappwebview;
+    if (legacy && typeof legacy.callHandler === "function") return legacy;
+    return null;
+  }
+  var host = _resolveHost();
+  var events = typeof globalThis !== "undefined" && globalThis.__i99dashEvents || (globalThis.__i99dashEvents = {
+    _handlers: /* @__PURE__ */ Object.create(null),
+    on(channel, fn) {
+      (this._handlers[channel] = this._handlers[channel] || /* @__PURE__ */ new Set()).add(fn);
+      return () => {
+        const s = this._handlers[channel];
+        if (s) s.delete(fn);
+      };
+    },
+    dispatch(channel, payload) {
+      const set = this._handlers[channel];
+      if (!set) return;
+      let parsed = payload;
+      if (typeof payload === "string") {
+        try {
+          parsed = JSON.parse(payload);
+        } catch (_) {
+        }
+      }
+      for (const fn of set) {
+        try {
+          fn(parsed);
+        } catch (err) {
+          console.error("[l5compat] event listener error:", err);
+        }
+      }
+    }
+  });
+  async function call(handler, payload = {}) {
+    if (!host) throw new Error("not_inside_host");
+    return host.callHandler(handler, payload);
+  }
+  var _LAT = ["lat", "latitude", "location_lat", "gps_lat", "pos_lat"];
+  var _LNG = ["lng", "lon", "long", "longitude", "location_lng", "gps_lng", "pos_lon"];
+  function _pick(values, keys) {
+    for (const k of Object.keys(values || {})) {
+      if (keys.includes(k.toLowerCase()) && values[k] != null) return Number(values[k]);
+    }
+    return null;
+  }
+  async function carLocation() {
+    let entries = [];
+    try {
+      const cat = await call("car.list", { category: "location" });
+      entries = cat && (cat.entries || cat.signals) || [];
+    } catch (_) {
+      return null;
+    }
+    if (!entries.length) return null;
+    const names = entries.map((e) => typeof e === "string" ? e : e.name).filter(Boolean);
+    let values = {};
+    try {
+      const r = await call("car.read", { names });
+      values = r && r.values || {};
+    } catch (_) {
+      return null;
+    }
+    const lat = _pick(values, _LAT);
+    const lng = _pick(values, _LNG);
+    if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) return null;
+    return {
+      lat,
+      lng,
+      heading: _pick(values, ["heading", "course", "bearing"]),
+      speedMps: _pick(values, ["speed", "speed_mps", "gps_speed"]),
+      accuracyM: _pick(values, ["accuracy", "accuracy_m", "hacc"]),
+      at: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+
   // src/main.js
+  var LocationUnavailableError = class extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "LocationUnavailableError";
+    }
+  };
   function _toSnapshot(p) {
     return {
       lat: p.coords.latitude,
@@ -6841,18 +5693,22 @@
     };
   }
   async function getLocationSnapshot() {
+    try {
+      const snap = await carLocation();
+      if (snap && typeof snap.lat === "number" && typeof snap.lng === "number") {
+        return snap;
+      }
+    } catch (e) {
+      console.warn("[weather-ahead] carLocation failed:", e && e.message);
+    }
     if (typeof window !== "undefined" && window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === "function") {
       try {
         const raw = await window.flutter_inappwebview.callHandler("location.read");
-        if (raw && raw.success === false) {
-          throw new LocationUnavailableError(
-            raw.error && raw.error.message || "location bridge denied"
-          );
+        if (raw && raw.success !== false) {
+          const data = raw && raw.data || raw;
+          if (data && typeof data.lat === "number") return data;
         }
-        const data = raw && raw.data || raw;
-        return data;
-      } catch (e) {
-        throw e instanceof LocationUnavailableError ? e : new LocationUnavailableError(e.message || String(e));
+      } catch (_) {
       }
     }
     return new Promise((resolve, reject) => {
@@ -6862,7 +5718,7 @@
       navigator.geolocation.getCurrentPosition(
         (p) => resolve(_toSnapshot(p)),
         (err) => reject(new LocationUnavailableError(err.message || "geolocation failed")),
-        { enableHighAccuracy: false, timeout: 3e4, maximumAge: 5 * 6e4 }
+        { enableHighAccuracy: false, timeout: 8e3, maximumAge: 5 * 6e4 }
       );
     });
   }
@@ -7311,17 +6167,11 @@
       applyLocation(initial);
       watchLocation(applyLocation);
     } catch (e) {
-      if (e instanceof LocationUnavailableError) {
-        coordsSource = "denied";
-        renderLocationStatus();
-        console.info("Location denied \u2014 no fallback in host mode.");
-      } else {
-        console.error("Location bridge error:", e);
-        coordsSource = "fallback";
-        coords = { lat: 24.774265, lng: 46.738586 };
-        renderLocationStatus();
-        fetchWeather(coords.lat, coords.lng);
-      }
+      console.warn("[weather-ahead] no location source; using default city:", e && e.message);
+      coordsSource = "fallback";
+      coords = { lat: 24.774265, lng: 46.738586 };
+      renderLocationStatus();
+      fetchWeather(coords.lat, coords.lng);
     }
     $("refresh-btn").addEventListener("click", () => {
       if (coords) {

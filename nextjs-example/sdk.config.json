@@ -1,5 +1,5 @@
 {
-  "appRoot": "./out",
+  "appRoot": "./src",
   "distDir": "./dist",
   "mocksDir": "./mocks",
   "dev": {

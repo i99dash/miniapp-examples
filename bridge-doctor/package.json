@@ -1,6 +1,6 @@
 {
   "name": "i99dash-example-bridge-doctor",
-  "version": "0.1.4",
+  "version": "0.1.7",
   "private": true,
   "description": "One-shot diagnostic mini-app that probes every i99dash bridge handler on the host and surfaces which work / which don't. Ships a one-tap DiShare passenger-cast reproducer.",
   "type": "module",
@@ -16,6 +16,9 @@
     "i99dash": "^5.0.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "keytar"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "keytar"
+    ]
   }
 }

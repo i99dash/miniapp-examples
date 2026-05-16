@@ -11,7 +11,7 @@
   "icon": "./assets/icon.svg",
   "coverImage": "./assets/cover.png",
   "url": "https://miniapps.i99dash.app/weather-ahead/",
-  "version": "0.6.0",
+  "version": "0.6.4",
   "minHostVersion": "0.0.2",
   "category": "navigation",
   "tags": [
