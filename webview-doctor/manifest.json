@@ -1,0 +1,21 @@
+{
+  "id": "webview-doctor",
+  "name": {
+    "en": "WebView Doctor",
+    "ar": "طبيب WebView"
+  },
+  "description": {
+    "en": "Diagnostic tool. If a mini-app doesn't work for you, open this, then export the report (.txt) and send it to i99dash support on Telegram. It measures the WebView version, the host-readiness timing, bridge responsiveness, and captures any error — privacy-clean (no VIN / location / account).",
+    "ar": "أداة تشخيص. إذا لم يعمل أي تطبيق مصغّر لديك، افتح هذا ثم صدّر التقرير (.txt) وأرسله لدعم i99dash عبر تيليجرام. يقيس إصدار WebView وتوقيت جاهزية المضيف واستجابة الجسر ويلتقط أي خطأ — دون أي بيانات خاصة."
+  },
+  "icon": "./icon.svg",
+  "coverImage": "./cover.svg",
+  "url": "https://miniapps.i99dash.app/webview-doctor/",
+  "version": "0.1.0",
+  "minHostVersion": "0.0.2",
+  "category": "developer",
+  "safeWhileDriving": true,
+  "requires": {
+    "schema": 1
+  }
+}

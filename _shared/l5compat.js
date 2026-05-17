@@ -21,10 +21,21 @@
  * With that gate gone they speak plain v2 and run on L5.
  *
  * The one genuine, code-proof L5 limit is hardware: a DiLink-5.0
- * instrument cluster is daemon-locked, so `surface.*` writes to the
- * cluster role can't paint pixels. That is detected here (`isL5`)
- * so cluster apps can show one consistent notice instead of a blank
- * screen — exactly the cases `mountNotice` / `requireFamily` cover.
+ * instrument **cluster MCU** is daemon-locked, so `surface.*` writes
+ * to the *cluster role* can't paint pixels. That is detected here
+ * (`isL5`) so cluster apps can show one consistent notice instead of
+ * a blank screen — exactly the cases `mountNotice` / `requireFamily`
+ * cover.
+ *
+ * Do NOT over-generalize this to "L5 can't paint." The daemon-lock
+ * is specific to the cluster MCU (which is not even an Android
+ * `Display` on Di5.0). L5's secondary BYD-container surfaces
+ * (`(shared_)fission_bg_XDJAScreenProjection*`, displays 2/3/4) are
+ * paintable `FLAG_PRESENTATION` projection virtuals — `surface.*`
+ * onto them via the host `Presentation` path works (dash-wallpaper
+ * runs there). The host classifies all three as the *passenger*
+ * role, never *cluster*, so a passenger/own-content surface is fine
+ * on L5; only the cluster *role* is gated.
  *
  * Target: ES2019 (esbuild down-levels `?.`/`??`; safe to use here).
  */
